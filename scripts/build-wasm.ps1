@@ -3,7 +3,8 @@
 
 param(
     [string]$BuildType = "Release",
-    [switch]$Clean
+    [switch]$Clean,
+    [int]$Jobs = 0  # 0 表示使用所有可用核心
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,7 +52,7 @@ Push-Location $BuildDir
 try {
     # 配置 CMake
     Write-Host "Configuring CMake..." -ForegroundColor Cyan
-    emcmake cmake .. -DCMAKE_BUILD_TYPE=$BuildType
+    emcmake cmake .. "-DCMAKE_BUILD_TYPE=$BuildType"
 
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed"
@@ -59,31 +60,34 @@ try {
 
     # 编译
     Write-Host ""
-    Write-Host "Starting compilation..." -ForegroundColor Cyan
-    cmake --build . --config $BuildType
+    if ($Jobs -eq 0) {
+        $Jobs = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+    }
+    Write-Host "Starting compilation with $Jobs parallel jobs..." -ForegroundColor Cyan
+    cmake --build . --config $BuildType --parallel $Jobs
 
     if ($LASTEXITCODE -ne 0) {
         throw "Compilation failed"
     }
 
-    # 复制产物到输出目录
+    # 检查输出文件
     Write-Host ""
-    Write-Host "Copying artifacts to output directory..." -ForegroundColor Cyan
+    Write-Host "Checking output files..." -ForegroundColor Cyan
 
-    $WasmFile = Join-Path $BuildDir "dice.wasm"
-    $JsFile = Join-Path $BuildDir "dice.js"
+    $WasmFile = Join-Path $OutputDir "dice.wasm"
+    $JsFile = Join-Path $OutputDir "dice.js"
 
     if (Test-Path $WasmFile) {
-        Copy-Item $WasmFile $OutputDir -Force
-        Write-Host "  ✓ dice.wasm" -ForegroundColor Green
+        $WasmSize = (Get-Item $WasmFile).Length / 1KB
+        Write-Host "  ✓ dice.wasm ($([math]::Round($WasmSize, 2)) KB)" -ForegroundColor Green
     }
     else {
         Write-Host "  ✗ dice.wasm not found" -ForegroundColor Red
     }
 
     if (Test-Path $JsFile) {
-        Copy-Item $JsFile $OutputDir -Force
-        Write-Host "  ✓ dice.js" -ForegroundColor Green
+        $JsSize = (Get-Item $JsFile).Length / 1KB
+        Write-Host "  ✓ dice.js ($([math]::Round($JsSize, 2)) KB)" -ForegroundColor Green
     }
     else {
         Write-Host "  ✗ dice.js not found" -ForegroundColor Red

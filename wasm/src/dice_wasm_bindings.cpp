@@ -29,21 +29,21 @@ EMSCRIPTEN_BINDINGS(dice_module) {
     function("hiddenRoll", &hiddenRoll);
     function("getMaxValue", &getMaxValue);
     function("getMinValue", &getMinValue);
-    
+
     // 人物作成功能
     function("generateCOC7Character", &generateCOC7Character);
     function("generateCOC6Character", &generateCOC6Character);
     function("generateDNDCharacter", &generateDNDCharacter);
-    
+
     // 理智检定功能
     function("sanityCheck", &sanityCheck);
-    
+
     // 疯狂症状功能
     function("getTempInsanity", &getTempInsanity);
     function("getLongInsanity", &getLongInsanity);
     function("getPhobia", &getPhobia);
     function("getMania", &getMania);
-    
+
     // 先攻列表功能
     function("addInitiative", &addInitiative);
     function("rollInitiative", &rollInitiative);
@@ -54,20 +54,31 @@ EMSCRIPTEN_BINDINGS(dice_module) {
     function("getInitiativeCount", &getInitiativeCount);
     function("serializeInitiative", &serializeInitiative);
     function("deserializeInitiative", &deserializeInitiative);
-    
+
     // 牌堆功能
     function("drawFromDeck", &drawFromDeck);
     function("listDecks", &listDecks);
     function("getDeckSize", &getDeckSize);
     function("deckExists", &deckExists);
-    
+
     // 规则查询功能
     function("queryRule", &queryRule);
-    function("queryRuleWithSystem", &queryRuleWithSystem);
-    
+    function("queryRuleBySystem", &queryRuleBySystem);
+    function("listRuleKeys", &listRuleKeys);
+    function("listRulesBySystem", &listRulesBySystem);
+
     // 工具函数
     function("initialize", &initialize);
-    
+
+    // 注册结构体
+    value_object<RuleQueryResult>("RuleQueryResult")
+        .field("success", &RuleQueryResult::success)
+        .field("content", &RuleQueryResult::content)
+        .field("error", &RuleQueryResult::error);
+
+    // 注册容器
+    register_vector<std::string>("VectorString");
+
     // 注册值类型
     value_object<val>("val");
 }

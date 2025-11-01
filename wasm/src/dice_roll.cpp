@@ -1,5 +1,6 @@
 #include "dice_roll.h"
 #include "../../Dice/Dice/RD.h"
+#include "../../Dice/Dice/RandomGenerator.h"
 #include <emscripten/val.h>
 
 using namespace emscripten;
@@ -9,7 +10,7 @@ static bool randomInitialized = false;
 
 void ensureRandomInit() {
     if (!randomInitialized) {
-        RandomInit();
+        // WASM 环境使用默认随机数生成器
         randomInitialized = true;
     }
 }
@@ -31,17 +32,17 @@ std::string getErrorMessage(int_errno err) {
 val rollDice(const std::string& expression, int defaultDice) {
     ensureRandomInit();
     val result = val::object();
-    
+
     try {
         RD rd(expression, defaultDice);
         int_errno err = rd.Roll();
-        
+
         result.set("total", rd.intTotal);
         result.set("expression", rd.strDice);
         result.set("detail", rd.FormCompleteString());
         result.set("errorCode", static_cast<int>(err));
         result.set("errorMsg", getErrorMessage(err));
-        
+
     } catch (const std::exception& e) {
         result.set("total", 0);
         result.set("expression", expression);
@@ -55,14 +56,14 @@ val rollDice(const std::string& expression, int defaultDice) {
         result.set("errorCode", -1);
         result.set("errorMsg", "未知异常");
     }
-    
+
     return result;
 }
 
 val cocCheck(int skillValue, int bonusDice) {
     ensureRandomInit();
     val result = val::object();
-    
+
     try {
         if (skillValue < 0 || skillValue > 100) {
             result.set("rollValue", 0);
@@ -73,10 +74,10 @@ val cocCheck(int skillValue, int bonusDice) {
             result.set("errorMsg", "技能值超出范围");
             return result;
         }
-        
+
         RD rd("1D100", 100);
         int_errno err = rd.Roll();
-        
+
         if (err != 0) {
             result.set("rollValue", 0);
             result.set("skillValue", skillValue);
@@ -86,16 +87,16 @@ val cocCheck(int skillValue, int bonusDice) {
             result.set("errorMsg", getErrorMessage(err));
             return result;
         }
-        
+
         int rollValue = rd.intTotal;
         int successLevel = 1; // 默认失败
         std::string description = "失败";
-        
+
         // 应用奖励/惩罚骰
         if (bonusDice != 0) {
             int tensDigit = (rollValue / 10) * 10;
             int onesDigit = rollValue % 10;
-            
+
             if (bonusDice > 0) {
                 // 奖励骰：取最小的十位数
                 for (int i = 0; i < bonusDice; i++) {
@@ -117,10 +118,10 @@ val cocCheck(int skillValue, int bonusDice) {
                     }
                 }
             }
-            
+
             rollValue = tensDigit + onesDigit;
         }
-        
+
         // 判定成功等级
         if (rollValue <= 5 || (rollValue <= skillValue && rollValue <= 5)) {
             successLevel = 5; // 大成功
@@ -138,14 +139,14 @@ val cocCheck(int skillValue, int bonusDice) {
             successLevel = 2; // 成功
             description = "成功";
         }
-        
+
         result.set("rollValue", rollValue);
         result.set("skillValue", skillValue);
         result.set("successLevel", successLevel);
         result.set("description", description);
         result.set("errorCode", 0);
         result.set("errorMsg", "");
-        
+
     } catch (const std::exception& e) {
         result.set("rollValue", 0);
         result.set("skillValue", skillValue);
@@ -161,7 +162,7 @@ val cocCheck(int skillValue, int bonusDice) {
         result.set("errorCode", -1);
         result.set("errorMsg", "未知异常");
     }
-    
+
     return result;
 }
 

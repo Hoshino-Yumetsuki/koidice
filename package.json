@@ -19,6 +19,7 @@
     "wasm"
   ],
   "scripts": {
+    "install:wasm-deps": "pwsh -File ./scripts/install-wasm-deps.ps1",
     "build:wasm": "pwsh -File ./scripts/build-wasm.ps1",
     "build:wasm:clean": "pwsh -File ./scripts/build-wasm.ps1 -Clean",
     "build:ts": "yarn rolldown -c rolldown.config.js",

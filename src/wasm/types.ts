@@ -65,8 +65,17 @@ export interface InitiativeTurnResult {
  */
 export interface DeckDrawResult {
   success: boolean
+  message?: string
   cards: string[]
-  message: string
+}
+
+/**
+ * 规则查询结果
+ */
+export interface RuleQueryResult {
+  success: boolean
+  content: string
+  error: string
 }
 
 export enum SuccessLevel {
@@ -129,8 +138,10 @@ export interface DiceModule {
   deckExists(deckName: string): boolean
 
   // 规则查询功能
-  queryRule(query: string): string
-  queryRuleWithSystem(system: string, keyword: string): string
+  queryRule(query: string): RuleQueryResult
+  queryRuleBySystem(system: string, keyword: string): RuleQueryResult
+  listRuleKeys(): string[]
+  listRulesBySystem(system: string): string[]
 
   // 角色卡功能
   createCharacter(characterName: string): boolean

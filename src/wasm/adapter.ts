@@ -2,10 +2,11 @@ import type {
   DiceModule,
   RollResult,
   COCCheckResult,
-  DeckDrawResult,
   SanityCheckResult,
   InitiativeRollResult,
-  InitiativeTurnResult
+  InitiativeTurnResult,
+  DeckDrawResult,
+  RuleQueryResult
 } from './types'
 import { SuccessLevel } from './types'
 import { loadDiceWasm } from './loader'
@@ -132,22 +133,35 @@ export class DiceAdapter {
   // ============ 规则查询功能 ============
 
   /**
-   * 查询规则
-   * @param query 查询字符串 (支持 "system:keyword" 格式)
+   * 查询规则（支持 "system:keyword" 格式）
    */
-  queryRule(query: string): string {
+  queryRule(query: string): RuleQueryResult {
     const module = this.ensureModule()
     return module.queryRule(query)
   }
 
   /**
    * 按系统查询规则
-   * @param system 系统名称 (coc/dnd/等)
-   * @param keyword 关键词
    */
-  queryRuleWithSystem(system: string, keyword: string): string {
+  queryRuleBySystem(system: string, keyword: string): RuleQueryResult {
     const module = this.ensureModule()
-    return module.queryRuleWithSystem(system, keyword)
+    return module.queryRuleBySystem(system, keyword)
+  }
+
+  /**
+   * 列出所有规则关键词
+   */
+  listRuleKeys(): string[] {
+    const module = this.ensureModule()
+    return module.listRuleKeys()
+  }
+
+  /**
+   * 列出指定系统的规则
+   */
+  listRulesBySystem(system: string): string[] {
+    const module = this.ensureModule()
+    return module.listRulesBySystem(system)
   }
 
   /**
