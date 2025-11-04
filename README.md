@@ -46,8 +46,8 @@ yarn add koishi-plugin-koidice
 
 ```
 .draw 塔罗牌      # 从塔罗牌堆抽一张
-.draw 塔罗牌 -n 3 # 抽三张
-.draw.reset 塔罗牌 # 重置牌堆
+.draw 塔罗牌 3    # 抽三张
+.draw.list        # 列出所有可用牌堆
 ```
 
 ### 角色卡管理
