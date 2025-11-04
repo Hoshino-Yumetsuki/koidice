@@ -4,4 +4,9 @@
 
 export * from './types'
 export * from './adapter'
-export { initDiceModule } from './adapter'
+export {
+  initDiceModule,
+  isModuleReady,
+  createDiceAdapter,
+  waitForReady
+} from './adapter'

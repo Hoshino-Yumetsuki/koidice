@@ -17,7 +17,7 @@ export function registerRollCommand(
     .alias('r')
     .alias('roll')
     .option('reason', '-r <reason:text> 掷骰原因')
-    .option('hidden', '-h 暗骰')
+    .option('hidden', '-d 暗骰（隐藏结果）')
     .action(async ({ session, options }, expression) => {
       if (!expression) {
         expression = `1d${config.defaultDice}`

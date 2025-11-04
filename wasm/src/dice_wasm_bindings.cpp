@@ -84,7 +84,4 @@ EMSCRIPTEN_BINDINGS(dice_module) {
 
     // 注册容器
     register_vector<std::string>("VectorString");
-
-    // 注册值类型
-    value_object<val>("val");
 }

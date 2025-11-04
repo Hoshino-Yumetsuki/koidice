@@ -7,34 +7,47 @@ import type {
   InitiativeRollResult,
   InitiativeTurnResult,
   DeckDrawResult,
-  RuleQueryResult,
+  RuleQueryResult
 } from './types'
 import { SuccessLevel } from './types'
-// @ts-ignore - dice.js 在编译时不存在，运行时才会生成
+// @ts-expect-error - dice.js 在编译时不存在，运行时才会生成
 import createDiceModule from '../../lib/dice.js'
 
 // 模块级别的缓存变量
 let wasmModule: DiceModule | null = null
 let modulePromise: Promise<DiceModule> | null = null
+let isPreloading = false
+
+/**
+ * Start preloading the WASM module in the background
+ * This is called automatically when the module is imported
+ */
+function startPreload(): void {
+  if (isPreloading || wasmModule || modulePromise) {
+    return
+  }
+  isPreloading = true
+  initDiceModule().catch(() => {
+    // Silently fail, will retry on actual use
+    isPreloading = false
+  })
+}
 
 /**
  * 初始化 Dice WASM 模块
  */
 export async function initDiceModule(): Promise<DiceModule> {
-  // 如果已经初始化，直接返回
   if (wasmModule) {
     return wasmModule
   }
 
-  // 如果正在初始化，等待完成
   if (modulePromise) {
     return modulePromise
   }
 
-  // 开始初始化
   modulePromise = (async () => {
     try {
-      // 配置 stdout/stderr 重定向，然后初始化模块
+      // Configure stdout/stderr redirection before module initialization
       const module = (await createDiceModule({
         print: (text: string) => {
           if (text) logger.debug(`[WASM] ${text}`)
@@ -43,11 +56,12 @@ export async function initDiceModule(): Promise<DiceModule> {
           if (text) logger.error(`[WASM] ${text}`)
         }
       })) as DiceModule
-      
       wasmModule = module
+      isPreloading = false
       return module
     } catch (error) {
       modulePromise = null
+      isPreloading = false
       const message = error instanceof Error ? error.message : String(error)
       throw new Error(`Failed to initialize Dice WASM module: ${message}`)
     }
@@ -57,33 +71,53 @@ export async function initDiceModule(): Promise<DiceModule> {
 }
 
 /**
+ * Check if WASM module is ready (synchronously)
+ */
+export function isModuleReady(): boolean {
+  return wasmModule !== null
+}
+
+// Start preloading immediately when this module is imported
+startPreload()
+
+/**
  * Dice WASM 适配器
  * 提供更友好的TypeScript接口
  */
 export class DiceAdapter {
   private module: DiceModule | null = null
+  private _initialized = false
 
   /**
    * 初始化适配器
    */
   async initialize(): Promise<void> {
-    if (this.module) {
+    if (this._initialized) {
       return
     }
-    
+
     this.module = await initDiceModule()
+    this._initialized = true
   }
 
   /**
-   * 确保模块已加载
+   * Auto-initialize on first use if WASM is ready
    */
   private ensureModule(): DiceModule {
-    if (!this.module) {
-      throw new Error(
-        'Dice WASM module not initialized. Call initialize() first.'
-      )
+    if (this._initialized && this.module) {
+      return this.module
     }
-    return this.module
+
+    // Try auto-initialization if module is already loaded
+    if (wasmModule && !this._initialized) {
+      this.module = wasmModule
+      this._initialized = true
+      return this.module
+    }
+
+    throw new Error(
+      'Dice WASM module not initialized. WASM module is still loading. Please wait a moment or call await adapter.initialize() first.'
+    )
   }
 
   /**
@@ -481,4 +515,22 @@ export async function getDiceAdapter(): Promise<DiceAdapter> {
     await adapterInstance.initialize()
   }
   return adapterInstance
+}
+
+/**
+ * Create a new Dice adapter instance
+ * @returns {Promise<DiceAdapter>} Initialized adapter
+ */
+export async function createDiceAdapter(): Promise<DiceAdapter> {
+  const adapter = new DiceAdapter()
+  await adapter.initialize()
+  return adapter
+}
+
+/**
+ * Wait for WASM module to be ready
+ * @returns {Promise<void>}
+ */
+export async function waitForReady(): Promise<void> {
+  await initDiceModule()
 }
