@@ -12,28 +12,34 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(EMSCRIPTEN)
     set(CMAKE_EXECUTABLE_SUFFIX ".js")
 
-    # 添加Emscripten编译选项
-    set(EMSCRIPTEN_FLAGS
+    # Emscripten 链接标志
+    set(EMSCRIPTEN_LINK_FLAGS
         --bind
-        "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString','stringToUTF8','lengthBytesUTF8']"
-        "-sEXPORTED_FUNCTIONS=['_malloc','_free']"
-        -sALLOW_MEMORY_GROWTH=1
-        -sMODULARIZE=1
-        "-sEXPORT_NAME='createDiceModule'"
-        -sENVIRONMENT=web,node
-        -sNO_DISABLE_EXCEPTION_CATCHING
-        -sNO_EXIT_RUNTIME=1
-        -sINITIAL_MEMORY=33554432
-        -sERROR_ON_UNDEFINED_SYMBOLS=0
+        -s WASM=1
+        -s ALLOW_MEMORY_GROWTH=1
+        "-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString','stringToUTF8','lengthBytesUTF8']"
+        "-s EXPORTED_FUNCTIONS=['_malloc','_free']"
+        -s MODULARIZE=1
+        "-s EXPORT_NAME='createDiceModule'"
+        -s EXPORT_ES6=1
+        -s ENVIRONMENT=web,node
+        -s NO_DISABLE_EXCEPTION_CATCHING
+        -s NO_EXIT_RUNTIME=1
+        -s INITIAL_MEMORY=33554432
+        -s ERROR_ON_UNDEFINED_SYMBOLS=0
         --no-entry
+        -Wl,--allow-undefined
     )
 
     # 优化选项
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        list(APPEND EMSCRIPTEN_FLAGS -O3 -flto)
+        list(APPEND EMSCRIPTEN_LINK_FLAGS -O3 -flto)
     else()
-        list(APPEND EMSCRIPTEN_FLAGS -O0 -g -gsource-map)
+        list(APPEND EMSCRIPTEN_LINK_FLAGS -O0 -g -gsource-map)
     endif()
+    
+    # 转换列表为字符串
+    string(REPLACE ";" " " EMSCRIPTEN_LINK_FLAGS_STR "${EMSCRIPTEN_LINK_FLAGS}")
 endif()
 
 # 包含目录
@@ -110,14 +116,15 @@ target_compile_definitions(dice PRIVATE
 
 # 应用Emscripten标志
 if(EMSCRIPTEN)
-    target_link_options(dice PRIVATE ${EMSCRIPTEN_FLAGS} -Wl,--allow-undefined)
-    target_compile_options(dice PRIVATE -fexceptions)
-
-    # 设置输出路径
+    # 设置链接标志和输出路径
     set_target_properties(dice PROPERTIES
+        LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS_STR}"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../lib"
         OUTPUT_NAME "dice"
     )
+    
+    # 设置编译选项
+    target_compile_options(dice PRIVATE -fexceptions)
 endif()
 
 # 安装规则

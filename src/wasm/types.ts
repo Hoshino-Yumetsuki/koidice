@@ -159,6 +159,16 @@ export interface DiceModule {
 }
 
 /**
+ * Emscripten 模块配置
+ */
+export interface EmscriptenModuleConfig {
+  locateFile?: (path: string, prefix: string) => string
+  [key: string]: any
+}
+
+/**
  * Emscripten 模块工厂类型
  */
-export type EmscriptenModuleFactory = () => Promise<DiceModule>
+export type EmscriptenModuleFactory = (
+  config?: EmscriptenModuleConfig
+) => Promise<DiceModule>

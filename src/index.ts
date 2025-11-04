@@ -2,7 +2,6 @@ import { type Context, Logger } from 'koishi'
 import type { Config } from './config'
 import { initializeDiceAdapter, registerCommands } from './commands'
 import { clearAllObservers } from './commands/observer'
-import { getDiceWasmLoader } from './wasm/loader'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -50,10 +49,6 @@ export async function apply(ctx: Context, config: Config) {
       // 清理旁观者列表
       clearAllObservers()
       logger.debug('已清理旁观者数据')
-
-      // 卸载 WASM 模块
-      getDiceWasmLoader().unload()
-      logger.debug('已卸载 WASM 模块')
 
       logger.info('Dice 插件卸载完成')
     } catch (error) {

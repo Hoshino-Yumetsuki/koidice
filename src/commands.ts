@@ -1,6 +1,6 @@
 import type { Context } from 'koishi'
 import type { Config } from './config'
-import { getDiceAdapter, type DiceAdapter } from './wasm'
+import { getDiceAdapter, initDiceModule, type DiceAdapter } from './wasm'
 import { logger } from './index'
 import {
   registerRollCommand,

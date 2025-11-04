@@ -1,3 +1,4 @@
+import { logger } from '../index'
 import type {
   DiceModule,
   RollResult,
@@ -6,10 +7,54 @@ import type {
   InitiativeRollResult,
   InitiativeTurnResult,
   DeckDrawResult,
-  RuleQueryResult
+  RuleQueryResult,
 } from './types'
 import { SuccessLevel } from './types'
-import { loadDiceWasm } from './loader'
+// @ts-ignore - dice.js 在编译时不存在，运行时才会生成
+import createDiceModule from '../../lib/dice.js'
+
+// 模块级别的缓存变量
+let wasmModule: DiceModule | null = null
+let modulePromise: Promise<DiceModule> | null = null
+
+/**
+ * 初始化 Dice WASM 模块
+ */
+export async function initDiceModule(): Promise<DiceModule> {
+  // 如果已经初始化，直接返回
+  if (wasmModule) {
+    return wasmModule
+  }
+
+  // 如果正在初始化，等待完成
+  if (modulePromise) {
+    return modulePromise
+  }
+
+  // 开始初始化
+  modulePromise = (async () => {
+    try {
+      // 配置 stdout/stderr 重定向，然后初始化模块
+      const module = (await createDiceModule({
+        print: (text: string) => {
+          if (text) logger.debug(`[WASM] ${text}`)
+        },
+        printErr: (text: string) => {
+          if (text) logger.error(`[WASM] ${text}`)
+        }
+      })) as DiceModule
+      
+      wasmModule = module
+      return module
+    } catch (error) {
+      modulePromise = null
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to initialize Dice WASM module: ${message}`)
+    }
+  })()
+
+  return modulePromise
+}
 
 /**
  * Dice WASM 适配器
@@ -25,7 +70,8 @@ export class DiceAdapter {
     if (this.module) {
       return
     }
-    this.module = await loadDiceWasm()
+    
+    this.module = await initDiceModule()
   }
 
   /**

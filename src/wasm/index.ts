@@ -3,5 +3,5 @@
  */
 
 export * from './types'
-export * from './loader'
 export * from './adapter'
+export { initDiceModule } from './adapter'

@@ -28,6 +28,14 @@ $EmccVersion = emcc --version | Select-Object -First 1
 Write-Host "Emscripten version: $EmccVersion" -ForegroundColor Green
 Write-Host ""
 
+# 生成版本头文件
+Write-Host "Generating version header..." -ForegroundColor Cyan
+& "$PSScriptRoot\generate-version.ps1"
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to generate version header"
+}
+Write-Host ""
+
 # 清理构建目录
 if ($Clean -and (Test-Path $BuildDir)) {
     Write-Host "Cleaning build directory..." -ForegroundColor Yellow

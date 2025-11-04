@@ -1,5 +1,6 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
+#include "version.h"
 #include "dice_roll.h"
 #include "dice_character.h"
 #include "dice_insanity.h"
@@ -18,6 +19,10 @@ bool initialize() {
     } catch (...) {
         return false;
     }
+}
+
+std::string getVersion() {
+    return DICE_VERSION;
 }
 
 // ============ Emscripten绑定 ============
@@ -69,6 +74,7 @@ EMSCRIPTEN_BINDINGS(dice_module) {
 
     // 工具函数
     function("initialize", &initialize);
+    function("getVersion", &getVersion);
 
     // 注册结构体
     value_object<RuleQueryResult>("RuleQueryResult")
