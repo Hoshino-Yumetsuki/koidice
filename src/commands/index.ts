@@ -1,5 +1,4 @@
 export * from './roll'
-export * from './coc'
 export * from './check'
 export * from './dnd'
 export * from './deck'
@@ -11,3 +10,6 @@ export * from './observer'
 export * from './wod'
 export * from './rule'
 export * from './nickname'
+
+// COC相关命令已移至 coc 文件夹
+export { registerCOCCommands } from './coc/index'

@@ -5,9 +5,7 @@ import { logger } from './index'
 import {
   registerRollCommand,
   registerCheckCommand,
-  registerGrowthCommand,
-  registerCOCGeneratorCommand,
-  registerSanityCheckCommand,
+  registerCOCCommands,
   registerDNDGeneratorCommand,
   registerDeckCommands,
   registerAttributeCharacterCommands,
@@ -55,9 +53,7 @@ export async function registerCommands(ctx: Context, config: Config) {
 
   if (config.enableCOC) {
     registerCheckCommand(koidice, ctx, config, diceAdapter)
-    registerGrowthCommand(koidice, ctx, config, diceAdapter)
-    registerCOCGeneratorCommand(koidice, config, diceAdapter)
-    registerSanityCheckCommand(koidice, ctx, config, diceAdapter)
+    registerCOCCommands(koidice, ctx, config, diceAdapter)
     registerInsanityCommands(koidice, config, diceAdapter)
   }
 
