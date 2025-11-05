@@ -52,6 +52,18 @@ export interface Observer {
 }
 
 /**
+ * 昵称数据模型
+ */
+export interface Nickname {
+  id: number // 自增主键
+  userId: string // 用户 ID
+  guildId: string | null // 群组 ID，null 表示全局昵称
+  nickname: string // 昵称
+  createdAt: Date // 创建时间
+  updatedAt: Date // 更新时间
+}
+
+/**
  * 扩展数据库表
  */
 declare module 'koishi' {
@@ -60,6 +72,7 @@ declare module 'koishi' {
     koidice_user_settings: UserSettings
     koidice_initiative: InitiativeList
     koidice_observer: Observer
+    koidice_nickname: Nickname
   }
 }
 
@@ -139,6 +152,24 @@ export function extendDatabase(ctx: Context) {
       autoInc: true,
       primary: 'id',
       unique: [['channelId', 'platform', 'userId']]
+    }
+  )
+
+  // 昵称表
+  ctx.model.extend(
+    'koidice_nickname',
+    {
+      id: 'unsigned',
+      userId: 'string',
+      guildId: 'string',
+      nickname: 'string',
+      createdAt: 'timestamp',
+      updatedAt: 'timestamp'
+    },
+    {
+      autoInc: true,
+      primary: 'id',
+      unique: [['userId', 'guildId']]
     }
   )
 }

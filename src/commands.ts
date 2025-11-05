@@ -16,7 +16,8 @@ import {
   registerSettingsCommands,
   registerObserverCommands,
   registerWODCommands,
-  registerRuleCommands
+  registerRuleCommands,
+  registerNicknameCommands
 } from './commands/index'
 
 let diceAdapter: DiceAdapter | null = null
@@ -50,6 +51,7 @@ export async function registerCommands(ctx: Context, config: Config) {
   registerDeckCommands(koidice, config, diceAdapter)
   registerAttributeCharacterCommands(koidice, ctx, diceAdapter)
   registerRollCommand(koidice, ctx, config, diceAdapter)
+  registerNicknameCommands(koidice, ctx, config, diceAdapter)
 
   if (config.enableCOC) {
     registerCheckCommand(koidice, ctx, config, diceAdapter)
