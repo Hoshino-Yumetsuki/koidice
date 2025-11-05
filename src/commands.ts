@@ -49,7 +49,7 @@ export async function registerCommands(ctx: Context, config: Config) {
   // 注册所有子命令
   registerDeckCommands(koidice, config, diceAdapter)
   registerAttributeCharacterCommands(koidice, ctx, diceAdapter)
-  registerRollCommand(koidice, config, diceAdapter)
+  registerRollCommand(koidice, ctx, config, diceAdapter)
 
   if (config.enableCOC) {
     registerCheckCommand(koidice, ctx, config, diceAdapter)

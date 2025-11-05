@@ -43,8 +43,7 @@ export function registerCheckCommand(
         // 如果表达式中没有数字，尝试从人物卡获取
         if (
           spaceIndex === -1 ||
-          Number.
-          isNaN(Number(expression.substring(spaceIndex + 1)))
+          Number.isNaN(Number(expression.substring(spaceIndex + 1)))
         ) {
           // 提取技能名（去除难度前缀和轮数前缀）
           let skillName = expression
