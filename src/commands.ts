@@ -64,6 +64,6 @@ export async function registerCommands(ctx: Context, config: Config) {
   registerInitiativeCommands(koidice, ctx, config, diceAdapter)
   registerSettingsCommands(koidice, ctx, config, diceAdapter)
   registerObserverCommands(koidice, ctx, config, diceAdapter)
-  registerWODCommands(koidice, config, diceAdapter)
+  registerWODCommands(koidice, ctx, config, diceAdapter)
   registerRuleCommands(koidice, config, diceAdapter, ctx)
 }
