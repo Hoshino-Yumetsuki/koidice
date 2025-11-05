@@ -53,3 +53,17 @@ export function getDeckDataPath(): string {
 
   return deckDir
 }
+
+/**
+ * 获取规则数据路径
+ * @returns 规则数据目录
+ */
+export function getRulesDataPath(): string {
+  const rulesDir = resolve(getDataPath(), 'rules')
+
+  if (!existsSync(rulesDir)) {
+    mkdirSync(rulesDir, { recursive: true })
+  }
+
+  return rulesDir
+}

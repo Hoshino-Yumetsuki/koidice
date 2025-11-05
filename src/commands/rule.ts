@@ -2,9 +2,10 @@ import type { Context, Command } from 'koishi'
 import type { Config } from '../config'
 import type { DiceAdapter } from '../wasm'
 import { logger } from '../index'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { getDataPath } from '../utils/path'
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
+import { resolve, extname, basename } from 'node:path'
+import { getDataPath, getRulesDataPath } from '../utils/path'
+import yaml from 'js-yaml'
 
 /**
  * 规则条目
@@ -27,6 +28,11 @@ interface RemoteRuleData {
  * 规则缓存
  */
 let remoteRulesCache: RemoteRuleData | null = null
+
+/**
+ * 本地规则缓存
+ */
+const localRulesCache: Record<string, Record<string, RuleEntry>> = {}
 
 /**
  * 获取规则缓存文件路径
@@ -61,6 +67,190 @@ function saveLocalCache(data: RemoteRuleData): void {
   } catch (error) {
     logger.error('保存规则缓存失败:', error)
   }
+}
+
+/**
+ * 加载本地规则文件
+ * 支持 JSON 和 YAML 格式
+ */
+function loadLocalRules(): void {
+  try {
+    const rulesDir = getRulesDataPath()
+
+    if (!existsSync(rulesDir)) {
+      logger.debug('规则目录不存在，跳过加载本地规则')
+      return
+    }
+
+    const files = readdirSync(rulesDir)
+    let loadedCount = 0
+
+    for (const file of files) {
+      const ext = extname(file).toLowerCase()
+      const ruleName = basename(file, ext)
+      const filePath = resolve(rulesDir, file)
+
+      try {
+        if (ext === '.json') {
+          // 加载 JSON 格式规则
+          const content = readFileSync(filePath, 'utf-8')
+          const rules = JSON.parse(content)
+
+          if (typeof rules === 'object' && rules !== null) {
+            localRulesCache[ruleName] = {}
+
+            // 支持两种格式：
+            // 1. { "规则名": "规则内容" }
+            // 2. { "规则名": { "name": "显示名", "content": "内容" } }
+            for (const [key, value] of Object.entries(rules)) {
+              if (typeof value === 'string') {
+                localRulesCache[ruleName][key] = {
+                  name: key,
+                  content: value
+                }
+              } else if (typeof value === 'object' && value !== null) {
+                const rule = value as any
+                localRulesCache[ruleName][key] = {
+                  name: rule.name || key,
+                  content: rule.content || String(value)
+                }
+              }
+            }
+            loadedCount++
+            logger.debug(
+              `加载本地规则文件: ${file} (${Object.keys(localRulesCache[ruleName]).length} 条规则)`
+            )
+          }
+        } else if (ext === '.yaml' || ext === '.yml') {
+          // 加载 YAML 格式规则
+          const content = readFileSync(filePath, 'utf-8')
+
+          try {
+            // 使用 js-yaml 解析 YAML
+            const data = yaml.load(content) as any
+
+            if (typeof data === 'object' && data !== null) {
+              // 支持原始 Dice 项目格式：{ rule: "规则名", manual: { ... } }
+              if (data.rule && data.manual) {
+                const actualRuleName = data.rule
+                localRulesCache[actualRuleName] = {}
+
+                for (const [key, value] of Object.entries(data.manual)) {
+                  if (typeof value === 'string') {
+                    localRulesCache[actualRuleName][key] = {
+                      name: key,
+                      content: value
+                    }
+                  }
+                }
+                loadedCount++
+                logger.debug(
+                  `加载本地规则文件: ${file} -> ${actualRuleName} (${Object.keys(localRulesCache[actualRuleName]).length} 条规则)`
+                )
+              }
+              // 兼容简化格式：直接键值对
+              else {
+                localRulesCache[ruleName] = {}
+
+                for (const [key, value] of Object.entries(data)) {
+                  if (typeof value === 'string') {
+                    localRulesCache[ruleName][key] = {
+                      name: key,
+                      content: value
+                    }
+                  } else if (typeof value === 'object' && value !== null) {
+                    const rule = value as any
+                    localRulesCache[ruleName][key] = {
+                      name: rule.name || key,
+                      content: rule.content || String(value)
+                    }
+                  }
+                }
+                loadedCount++
+                logger.debug(
+                  `加载本地规则文件: ${file} (${Object.keys(localRulesCache[ruleName]).length} 条规则)`
+                )
+              }
+            }
+          } catch (yamlError) {
+            logger.error(`解析 YAML 文件 ${file} 失败:`, yamlError)
+          }
+        }
+      } catch (error) {
+        logger.error(`加载规则文件 ${file} 失败:`, error)
+      }
+    }
+
+    if (loadedCount > 0) {
+      logger.info(`成功加载 ${loadedCount} 个本地规则文件`)
+    }
+  } catch (error) {
+    logger.error('加载本地规则失败:', error)
+  }
+}
+
+/**
+ * 从本地规则查找
+ */
+function findLocalRule(system: string, keyword: string): RuleEntry | null {
+  if (Object.keys(localRulesCache).length === 0) {
+    return null
+  }
+
+  const lowerKeyword = keyword.toLowerCase()
+  const lowerSystem = system.toLowerCase()
+
+  // 查找指定系统的规则
+  if (lowerSystem && localRulesCache[lowerSystem]) {
+    const systemRules = localRulesCache[lowerSystem]
+
+    // 精确匹配
+    for (const [key, entry] of Object.entries(systemRules)) {
+      if (
+        key.toLowerCase() === lowerKeyword ||
+        entry.name.toLowerCase() === lowerKeyword
+      ) {
+        return entry
+      }
+    }
+
+    // 模糊匹配
+    for (const [key, entry] of Object.entries(systemRules)) {
+      if (
+        key.toLowerCase().includes(lowerKeyword) ||
+        entry.name.toLowerCase().includes(lowerKeyword)
+      ) {
+        return entry
+      }
+    }
+  }
+
+  // 搜索所有系统
+  for (const systemRules of Object.values(localRulesCache)) {
+    // 精确匹配
+    for (const [key, entry] of Object.entries(systemRules)) {
+      if (
+        key.toLowerCase() === lowerKeyword ||
+        entry.name.toLowerCase() === lowerKeyword
+      ) {
+        return entry
+      }
+    }
+  }
+
+  // 模糊匹配
+  for (const systemRules of Object.values(localRulesCache)) {
+    for (const [key, entry] of Object.entries(systemRules)) {
+      if (
+        key.toLowerCase().includes(lowerKeyword) ||
+        entry.name.toLowerCase().includes(lowerKeyword)
+      ) {
+        return entry
+      }
+    }
+  }
+
+  return null
 }
 
 /**
@@ -262,6 +452,14 @@ export function registerRuleCommands(
             logger.error('列出规则错误:', error)
           }
 
+          // 显示本地规则信息
+          if (Object.keys(localRulesCache).length > 0) {
+            result += `\n=== 本地规则文件 ===\n`
+            for (const [system, rules] of Object.entries(localRulesCache)) {
+              result += `${system}: ${Object.keys(rules).length} 条\n`
+            }
+          }
+
           // 显示远程规则信息
           const remoteData = getRulesData()
           if (remoteData) {
@@ -299,13 +497,19 @@ export function registerRuleCommands(
           logger.debug('WASM规则查询失败:', error)
         }
 
-        // 2. 查询本地缓存的远程规则
+        // 2. 查询本地规则文件
+        const localRule = findLocalRule(system, keyword)
+        if (localRule) {
+          return `【${localRule.name}】\n${localRule.content}`
+        }
+
+        // 3. 查询本地缓存的远程规则
         const cachedRule = findRemoteRule(system, keyword)
         if (cachedRule) {
           return `【${cachedRule.name}】\n${cachedRule.content}`
         }
 
-        // 3. 实时查询远程规则（与原始 Dice 项目一致）
+        // 4. 实时查询远程规则（与原始 Dice 项目一致）
         try {
           const remoteResult = await fetchRemoteRule(ctx, system, keyword)
           if (remoteResult) {
@@ -322,8 +526,9 @@ export function registerRuleCommands(
       }
     })
 
-  // 启动时加载缓存
+  // 启动时加载缓存和本地规则
   remoteRulesCache = loadLocalCache()
+  loadLocalRules()
 
   // 如果缓存过期（超过7天），后台更新
   if (remoteRulesCache) {
