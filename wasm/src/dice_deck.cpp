@@ -17,14 +17,26 @@ val drawFromDeck(const std::string& deckName, int count) {
             return result;
         }
 
+        // 检查牌堆是否存在
+        if (CardDeck::mPublicDeck.count(deckName) == 0 && 
+            CardDeck::mExternPublicDeck.count(deckName) == 0) {
+            result.set("success", false);
+            result.set("message", "牌堆 " + deckName + " 不存在");
+            result.set("cards", val::array());
+            return result;
+        }
+
         std::vector<std::string> cards;
-        std::ostringstream oss;
 
         for (int i = 0; i < count; i++) {
-            std::string card = CardDeck::draw(deckName);
-            if (card.empty()) {
+            // 使用 {牌堆名} 格式调用 draw 函数
+            std::string expression = "{" + deckName + "}";
+            std::string card = CardDeck::draw(expression);
+            
+            // 如果返回的还是原表达式，说明抽取失败
+            if (card == expression || card.empty()) {
                 result.set("success", false);
-                result.set("message", "牌堆 " + deckName + " 不存在或已空");
+                result.set("message", "从牌堆 " + deckName + " 抽取失败");
                 result.set("cards", val::array());
                 return result;
             }

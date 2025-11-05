@@ -101,6 +101,10 @@ export interface DiceModule {
   // 人物作成功能
   generateCOC7Character(): string
   generateCOC6Character(): string
+  generateCOC7CharacterDetailed(): string
+  generateCOC6CharacterDetailed(): string
+  generateCOC7Multiple(count: number): string
+  generateCOC6Multiple(count: number): string
   generateDNDCharacter(count?: number): string
 
   // 人物卡解析功能

@@ -39,6 +39,10 @@ EMSCRIPTEN_BINDINGS(dice_module) {
     // 人物作成功能
     function("generateCOC7Character", &generateCOC7Character);
     function("generateCOC6Character", &generateCOC6Character);
+    function("generateCOC7CharacterDetailed", &generateCOC7CharacterDetailed);
+    function("generateCOC6CharacterDetailed", &generateCOC6CharacterDetailed);
+    function("generateCOC7Multiple", &generateCOC7Multiple);
+    function("generateCOC6Multiple", &generateCOC6Multiple);
     function("generateDNDCharacter", &generateDNDCharacter);
 
     // 人物卡解析功能

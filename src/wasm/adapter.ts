@@ -290,7 +290,7 @@ export class DiceAdapter {
   // ============ 人物作成功能 ============
 
   /**
-   * COC7版人物作成
+   * COC7版人物作成（简略版）
    */
   generateCOC7(): string {
     const module = this.ensureModule()
@@ -298,11 +298,45 @@ export class DiceAdapter {
   }
 
   /**
-   * COC6版人物作成
+   * COC6版人物作成（简略版）
    */
   generateCOC6(): string {
     const module = this.ensureModule()
     return module.generateCOC6Character()
+  }
+
+  /**
+   * COC7版人物作成（详细版，包含背景）
+   */
+  generateCOC7Detailed(): string {
+    const module = this.ensureModule()
+    return module.generateCOC7CharacterDetailed()
+  }
+
+  /**
+   * COC6版人物作成（详细版，包含背景）
+   */
+  generateCOC6Detailed(): string {
+    const module = this.ensureModule()
+    return module.generateCOC6CharacterDetailed()
+  }
+
+  /**
+   * COC7版人物作成（多次生成）
+   * @param count 生成数量
+   */
+  generateCOC7Multiple(count: number): string {
+    const module = this.ensureModule()
+    return module.generateCOC7Multiple(count)
+  }
+
+  /**
+   * COC6版人物作成（多次生成）
+   * @param count 生成数量
+   */
+  generateCOC6Multiple(count: number): string {
+    const module = this.ensureModule()
+    return module.generateCOC6Multiple(count)
   }
 
   /**
