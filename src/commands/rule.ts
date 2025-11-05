@@ -64,7 +64,46 @@ function saveLocalCache(data: RemoteRuleData): void {
 }
 
 /**
- * 从远程服务器拉取规则
+ * 从远程服务器查询单个规则（与原始 Dice 项目 API 一致）
+ */
+async function fetchRemoteRule(
+  ctx: Context,
+  ruleName: string,
+  itemName: string
+): Promise<string | null> {
+  try {
+    const ruleUrl = 'http://api.kokona.tech:5555/rules'
+
+    // 构建表单数据，与原始 Dice 项目一致
+    const formData = new URLSearchParams()
+    formData.append('Name', itemName)
+    formData.append('QQ', '0') // Koishi 环境下使用 0
+    formData.append('v', '20190114')
+    if (ruleName) {
+      formData.append('Type', `Rules-${ruleName}`)
+    }
+
+    logger.debug(`查询远程规则: ${ruleName}:${itemName}`)
+    const response = await ctx.http.post(ruleUrl, formData.toString(), {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Koishi-Plugin-Koidice',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    })
+
+    if (response && typeof response === 'string' && response.trim()) {
+      logger.debug('远程规则查询成功')
+      return response
+    }
+  } catch (error) {
+    logger.debug('查询远程规则失败:', error)
+  }
+  return null
+}
+
+/**
+ * 从远程服务器拉取完整规则库（用于批量更新）
  */
 async function fetchRemoteRules(ctx: Context): Promise<RemoteRuleData | null> {
   try {
@@ -260,10 +299,20 @@ export function registerRuleCommands(
           logger.debug('WASM规则查询失败:', error)
         }
 
-        // 2. 查询远程规则缓存
-        const rule = findRemoteRule(system, keyword)
-        if (rule) {
-          return `【${rule.name}】\n${rule.content}`
+        // 2. 查询本地缓存的远程规则
+        const cachedRule = findRemoteRule(system, keyword)
+        if (cachedRule) {
+          return `【${cachedRule.name}】\n${cachedRule.content}`
+        }
+
+        // 3. 实时查询远程规则（与原始 Dice 项目一致）
+        try {
+          const remoteResult = await fetchRemoteRule(ctx, system, keyword)
+          if (remoteResult) {
+            return `【${keyword}】\n${remoteResult}`
+          }
+        } catch (error) {
+          logger.debug('远程规则实时查询失败:', error)
         }
 
         return `未找到规则: ${keyword}\n使用 .rule list 查看所有规则\n或使用 .rule update 更新远程规则库`
