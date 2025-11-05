@@ -1,4 +1,4 @@
-import type { Command, Context, } from 'koishi'
+import type { Command, Context } from 'koishi'
 import type { Config } from '../config'
 import type { DiceAdapter } from '../wasm'
 import { logger } from '../index'
