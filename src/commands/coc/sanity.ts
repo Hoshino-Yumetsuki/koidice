@@ -6,7 +6,9 @@ import { CharacterService } from '../../services/character-service'
 
 /**
  * 理智检定命令 .sc
- * 参考 DiceEvent.cpp 3843-3948行
+ * 核心逻辑在 wasm/src/features/insanity.cpp 的 sanityCheck 函数中实现
+ * TypeScript 层负责参数解析、人物卡交互和消息格式化
+ *
  * 用法：.sc [成功损失]/[失败损失] ([当前san值]) ([原因])
  * 示例：
  * .sc 0/1d6 - 从人物卡获取SAN值
@@ -85,68 +87,25 @@ export function registerSanityCheckCommand(
           shouldUpdateCard = true
         }
 
-        // 验证SAN值（参考 DiceEvent.cpp 3886-3888行）
-        if (currentSan <= 0) {
-          return 'SAN值无效，必须大于0'
+        // 执行理智检定
+        const result = diceAdapter.sanityCheck(
+          currentSan,
+          successLoss,
+          failureLoss
+        )
+
+        if (result.errorCode !== 0) {
+          return `理智检定失败: ${result.errorMsg}`
         }
 
-        // 执行理智检定（参考 DiceEvent.cpp 3891-3929行）
-        // 1. 掷骰1D100
-        const rollResult = diceAdapter.roll('1d100', 100)
-        if (rollResult.errorCode !== 0) {
-          return `掷骰失败: ${rollResult.errorMsg}`
-        }
-        const rollValue = rollResult.total
-
-        // 2. 判定成功等级（使用skillCheck来获取成功等级）
-        const checkExpression = `${rollValue}/${currentSan}`
-        const checkResult = diceAdapter.skillCheck(checkExpression, 1)
-        if (checkResult.errorCode !== 0) {
-          return `检定失败: ${checkResult.errorMsg}`
-        }
-
-        // 3. 根据成功等级计算损失
-        let sanLoss = 0
-        let lossDetail = ''
-        const successLevel = checkResult.results[0].successLevel
-
-        if (successLevel === 0) {
-          // 大失败 - 取失败损失的最大值（参考 DiceEvent.cpp 3913-3920行）
-          const maxResult = diceAdapter.getMaxValue(failureLoss, 100)
-          if (maxResult === -1) {
-            return '损失表达式无效'
-          }
-          sanLoss = maxResult
-          lossDetail = `Max{${failureLoss}}=${sanLoss}`
-        } else if (successLevel === 1) {
-          // 失败 - 掷失败损失骰（参考 DiceEvent.cpp 3905-3912行）
-          const lossResult = diceAdapter.roll(failureLoss, 100)
-          if (lossResult.errorCode !== 0) {
-            return '损失表达式无效'
-          }
-          sanLoss = lossResult.total
-          lossDetail = lossResult.detail
-        } else {
-          // 成功 - 掷成功损失骰（参考 DiceEvent.cpp 3922-3928行）
-          const lossResult = diceAdapter.roll(successLoss, 100)
-          if (lossResult.errorCode !== 0) {
-            return '损失表达式无效'
-          }
-          sanLoss = lossResult.total
-          lossDetail = lossResult.detail
-        }
-
-        // 4. 计算新的SAN值（参考 DiceEvent.cpp 3936行）
-        const newSan = Math.max(0, currentSan - sanLoss)
-
-        // 5. 更新人物卡（参考 DiceEvent.cpp 3940-3945行）
-        if (shouldUpdateCard && sanLoss > 0) {
+        // 更新人物卡
+        if (shouldUpdateCard && result.sanLoss > 0) {
           await characterService.setAttributes(session, null, {
-            理智: newSan
+            理智: result.newSan
           })
         }
 
-        // 6. 构建输出消息
+        // 构建输出消息
         const successLevelText = [
           '大失败',
           '失败',
@@ -154,16 +113,17 @@ export function registerSanityCheckCommand(
           '困难成功',
           '极难成功',
           '大成功'
-        ][successLevel]
+        ][result.successLevel]
+
         const messageParts = [session.username]
         if (reason) {
           messageParts.push(reason)
         }
         messageParts.push(
-          `1D100=${rollValue}/${currentSan} ${successLevelText}`
+          `1D100=${result.rollValue}/${currentSan} ${successLevelText}`
         )
-        messageParts.push(`理智损失: ${lossDetail}`)
-        messageParts.push(`当前理智: ${currentSan} → ${newSan}`)
+        messageParts.push(`理智损失: ${result.lossDetail}`)
+        messageParts.push(`当前理智: ${currentSan} → ${result.newSan}`)
 
         return messageParts.join('\n')
       } catch (error) {

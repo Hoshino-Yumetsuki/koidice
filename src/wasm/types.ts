@@ -51,10 +51,12 @@ export interface HiddenRollResult {
  * 理智检定结果
  */
 export interface SanityCheckResult {
-  success: boolean
   rollValue: number
+  successLevel: number // 0-大失败, 1-失败, 2-成功, 3-困难成功, 4-极难成功, 5-大成功
   sanLoss: number
+  lossDetail: string
   newSan: number
+  errorCode: number
   errorMsg: string
 }
 

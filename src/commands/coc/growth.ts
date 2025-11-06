@@ -114,7 +114,6 @@ export function registerGrowthCommand(
           }
 
           const successGrowth = match[1]
-          const _failureGrowth = match[2]
 
           // 掷成长骰
           const growthRoll = diceAdapter.roll(successGrowth, 100)
