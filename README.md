@@ -61,10 +61,6 @@ yarn add koishi-plugin-koidice
 .pc.del 调查员    # 删除角色卡
 ```
 
-## 开发
-
-详细的开发和构建指南请参阅 [WASM_BUILD.md](./WASM_BUILD.md)。
-
 ### 构建
 
 ```bash
