@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-koidice",
   "description": "Dice! 的完整 Koishi 移植",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "main": "lib/index.cjs",
   "module": "lib/index.mjs",
   "types": "lib/index.d.ts",
