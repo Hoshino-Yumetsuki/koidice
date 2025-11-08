@@ -49,7 +49,7 @@ export function registerStSetCommand(
 
       // 解析格式
       try {
-        const { cardName, operations } = parseStCommand(argsStr)
+        const { cardName, operations } = parseStCommand(argsStr, diceAdapter)
 
         logger.debug('解析结果:', { cardName, operations, argsStr })
 

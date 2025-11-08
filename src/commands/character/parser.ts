@@ -1,12 +1,30 @@
 import { type ParsedStCommand, normalizeAttributeName } from './types'
+import type { DiceAdapter } from '../../wasm'
 
 /**
  * 解析 .st 命令参数
+ * 优先使用 WASM 实现（如果提供了 adapter），否则使用 TypeScript 实现
  * 只支持格式：
  * - 力量 60 敏捷 70
  * - Alice--力量 60 敏捷 70
  */
-export function parseStCommand(input: string): ParsedStCommand {
+export function parseStCommand(
+  input: string,
+  adapter?: DiceAdapter
+): ParsedStCommand {
+  // 优先使用 WASM 实现
+  if (adapter) {
+    try {
+      return adapter.parseStCommand(input) as ParsedStCommand
+    } catch (error) {
+      console.warn(
+        'WASM parseStCommand failed, falling back to TypeScript:',
+        error
+      )
+    }
+  }
+
+  // Fallback to TypeScript implementation
   let text = input.trim()
   let cardName: string | undefined
 
@@ -49,15 +67,32 @@ export function parseStCommand(input: string): ParsedStCommand {
 
 /**
  * 解析属性名列表（用于 show 和 del 命令）
+ * 优先使用 WASM 实现（如果提供了 adapter），否则使用 TypeScript 实现
  * 支持格式：
  * - 力量 敏捷
  * - Alice--力量 敏捷
  * - all
  */
-export function parseAttributeList(input: string): {
+export function parseAttributeList(
+  input: string,
+  adapter?: DiceAdapter
+): {
   cardName?: string
   attributes: string[]
 } {
+  // 优先使用 WASM 实现
+  if (adapter) {
+    try {
+      return adapter.parseAttributeList(input)
+    } catch (error) {
+      console.warn(
+        'WASM parseAttributeList failed, falling back to TypeScript:',
+        error
+      )
+    }
+  }
+
+  // Fallback to TypeScript implementation
   let text = input.trim()
   let cardName: string | undefined
 

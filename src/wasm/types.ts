@@ -157,6 +157,14 @@ export interface DiceModule {
   // 人物卡解析功能
   parseCOCAttributes(input: string): string
   normalizeAttributeName(name: string): string
+  parseStCommand(input: string): {
+    cardName?: string
+    operations: Array<{ attr: string; op: string; value: number }>
+  }
+  parseAttributeList(input: string): {
+    cardName?: string
+    attributes: string[]
+  }
 
   // 理智检定功能
   sanityCheck(

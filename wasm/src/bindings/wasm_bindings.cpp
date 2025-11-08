@@ -3,6 +3,7 @@
 #include "../core/command_processor.h"
 #include "../core/utils.h"
 #include "../features/character.h"
+#include "../features/character_parser.h"
 #include "../features/insanity.h"
 #include "../features/initiative.h"
 #include "../features/deck.h"
@@ -116,6 +117,8 @@ EMSCRIPTEN_BINDINGS(dice_module) {
     // === 人物卡解析 ===
     function("parseCOCAttributes", &parseCOCAttributes);
     function("normalizeAttributeName", &normalizeAttributeName);
+    function("parseStCommand", &parseStCommand);
+    function("parseAttributeList", &parseAttributeList);
 
     // === 工具函数 ===
     function("initialize", &initialize);

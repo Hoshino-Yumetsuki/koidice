@@ -173,6 +173,7 @@ set(WASM_SOURCES
 
     # Features - 功能模块（新结构）
     src/features/character.cpp
+    src/features/character_parser.cpp
     src/features/insanity.cpp
     src/features/initiative.cpp
     src/features/deck.cpp

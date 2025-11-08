@@ -62,7 +62,7 @@ export function registerStShowCommand(
         }
 
         // 解析参数
-        const { cardName, attributes } = parseAttributeList(args)
+        const { cardName, attributes } = parseAttributeList(args, diceAdapter)
 
         // 检查是否是 all
         if (attributes.length === 1 && attributes[0].toLowerCase() === 'all') {

@@ -35,7 +35,7 @@ export function registerStDelCommand(
           return success ? `已删除人物卡 ${cardName}` : '删除失败'
         }
 
-        const { cardName, attributes } = parseAttributeList(args)
+        const { cardName, attributes } = parseAttributeList(args, diceAdapter)
         const targetCard = cardName || null
 
         // 检查是否是 all（删除整个人物卡）
