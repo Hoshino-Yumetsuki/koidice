@@ -10,3 +10,6 @@
 [submodule "wasm/include/yaml-cpp"]
 	path = wasm/include/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
+[submodule "wasm/include/simdutf"]
+	path = wasm/include/simdutf
+	url = https://github.com/simdutf/simdutf.git
