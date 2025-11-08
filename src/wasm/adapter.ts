@@ -443,6 +443,32 @@ export class DiceAdapter {
     return module.normalizeAttributeName(name)
   }
 
+  /**
+   * 解析 .st 命令参数
+   * @param input 输入字符串
+   * @returns 解析后的命令对象 { cardName?: string, operations: Array<{attr, op, value}> }
+   */
+  parseStCommand(input: string): {
+    cardName?: string
+    operations: Array<{ attr: string; op: string; value: number }>
+  } {
+    const module = this.ensureModule()
+    return module.parseStCommand(input)
+  }
+
+  /**
+   * 解析属性名列表
+   * @param input 输入字符串
+   * @returns 解析后的对象 { cardName?: string, attributes: Array<string> }
+   */
+  parseAttributeList(input: string): {
+    cardName?: string
+    attributes: string[]
+  } {
+    const module = this.ensureModule()
+    return module.parseAttributeList(input)
+  }
+
   // ============ 理智检定功能 ============
 
   /**
