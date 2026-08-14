@@ -1,14 +1,32 @@
-import type { Context } from 'koishi'
-import type { DiceAdapter } from '../../wasm'
-import type { DescriptorJson, ReplyConfig } from './types'
+import type { Context, Session } from 'koishi'
+import type {
+  DiceAdapter,
+  ExtensionDataSnapshot,
+  ExtensionDataWrite
+} from '../../wasm'
+import type {
+  DescriptorJson,
+  ExtensionContext,
+  ReplyConfig,
+  ReplyEcho,
+  ReplyLimit,
+  ReplyMatchMode
+} from './types'
 import { logger } from '../../index'
 import { replacePlaceholders } from './script-wrapper'
 import type { CharacterService } from '../character-service'
 import type { GameSessionService } from '../game-session-service'
 
-/**
- * 注册插件命令到 Koishi
- */
+interface MatchResult {
+  suffix: string
+}
+
+interface RegisteredReply {
+  config: ReplyConfig
+  scriptName?: string
+  matchers: Array<{ mode: ReplyMatchMode; value: string | RegExp }>
+}
+
 export async function registerPluginCommands(
   ctx: Context,
   adapter: DiceAdapter,
@@ -16,423 +34,273 @@ export async function registerPluginCommands(
   commands: Map<string, ReplyConfig>,
   characterService: CharacterService,
   gameSessionService: GameSessionService,
-  pluginRules: Map<string, any>,
+  pluginRules: Map<string, unknown>,
   templateAliasMap?: Map<string, Record<string, string>>
-): Promise<void> {
-  if (commands.size === 0) {
-    logger.info(`No commands to register`)
-    return
+): Promise<Array<() => void>> {
+  const disposers: Array<() => void> = []
+  const replies: RegisteredReply[] = []
+
+  for (const [name, config] of commands) {
+    const echo = normalizeEcho(config.echo)
+    const script = echo.lua || echo.js
+    const scriptName = script
+      ? script.startsWith(`${descriptor.name}.`)
+        ? script
+        : `${descriptor.name}.${script}`
+      : undefined
+    const matchers = compileMatchers(name, config)
+    if (!matchers.length) continue
+    replies.push({ config, scriptName, matchers })
   }
 
-  logger.info(`Registering ${commands.size} command(s):`)
+  if (!replies.length) return disposers
 
-  for (const [cmdName, config] of commands) {
-    try {
-      // 提取命令信息
-      const prefix = config.keyword?.prefix || `.${cmdName}`
-      let scriptName = config.echo?.lua || config.echo?.js
-
-      if (!scriptName) {
-        logger.warn(`No script specified for command: ${cmdName}`)
-        continue
-      }
-
-      // 如果脚本名不包含插件名前缀，添加它
-      if (!scriptName.startsWith(`${descriptor.name}.`)) {
-        scriptName = `${descriptor.name}.${scriptName}`
-      }
-
-      // 去掉前缀的 "." 得到命令名
-      const koishiCmd = prefix.startsWith('.') ? prefix.substring(1) : prefix
-
-      // 将插件命令注册为子命令: koidice.<插件名>.<命令名>
-      const pluginName = descriptor.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-      const fullCmd = `koidice.${pluginName}.${koishiCmd}`
-
-      logger.info(`  - ${fullCmd} -> ${scriptName}`)
-
-      // 注册 Koishi 命令
-      // 创建基础命令,然后为常见的子命令(show, list等)注册子命令
-      const baseCmd = ctx
-        .command(`${fullCmd} [action:text] [...args]`)
-        .usage(
-          config.rule
-            ? `[${config.rule}] ${descriptor.title || descriptor.name}`
-            : descriptor.title || descriptor.name
+  const dispose = ctx.middleware(async (session, next) => {
+    const content = session.stripped?.content ?? session.content ?? ''
+    for (const mode of ['match', 'prefix', 'search', 'regex'] as const) {
+      const candidates = replies
+        .map((reply) => ({ reply, matched: matchReply(reply, content, mode) }))
+        .filter((candidate) => candidate.matched)
+        .sort((left, right) => right.matched!.matchedLength - left.matched!.matchedLength)
+      for (const { reply, matched } of candidates) {
+        const type = (reply.config.type || 'Reply').toLowerCase()
+        if (type !== 'reply' && type !== 'both') continue
+        if (!allowsSession(reply.config.limit, session)) continue
+        if (!passesProbability(reply.config.limit?.prob)) continue
+        const result = await executeReply(
+          ctx, adapter, descriptor, reply, matched!.suffix, session,
+          characterService, gameSessionService, pluginRules, templateAliasMap
         )
-        .action(async ({ session }, action, ...args) => {
-          // 将 action 和 args 组合为完整参数
-          const allArgs = action ? [action, ...args] : args
-          // 准备扩展上下文
-          const context = await buildExtensionContext(
-            ctx,
-            session,
-            allArgs,
-            characterService,
-            gameSessionService,
-            pluginRules,
-            templateAliasMap
-          )
-
-          try {
-            // 调用 WASM 扩展
-            logger.debug(
-              `Calling ${scriptName} with suffix: "${context.suffix}"`
-            )
-            let result = adapter.callExtension(scriptName, context)
-
-            // 脚本执行后，重新读取名片缓存（因为脚本可能更新了名片）
-            let updatedCard = context.card
-            try {
-              const guildId = session?.guildId || session?.channelId || ''
-              if (guildId) {
-                const cardKey = `card#${session.userId}`
-                const cardData = await ctx.database.get('koidice_group_data', {
-                  guildId,
-                  dataKey: cardKey
-                })
-                if (cardData.length > 0) {
-                  updatedCard = cardData[0].dataValue || ''
-                }
-              }
-            } catch (error) {
-              logger.debug('重新读取名片缓存失败:', error)
-            }
-
-            // 替换占位符
-            if (result && typeof result === 'string') {
-              result = replacePlaceholders(result, {
-                username: session.username,
-                userId: session.userId,
-                guildId: session.guildId,
-                channelId: session.channelId,
-                charName: context.char?.__Name || context.char?.name,
-                card: updatedCard
-              })
-              logger.debug(`Extension result (${scriptName}): ${result}`)
-            }
-
-            return result
-          } catch (error) {
-            logger.error(`Extension error (${scriptName}):`, error)
-            return `[错误] ${error.message}`
-          }
-        })
-
-      // 为常见的子命令注册别名
-      // 例如: team show, team list 等
-      const commonSubCommands = ['show', 'list', 'add', 'remove', 'del', 'set']
-      for (const subCmd of commonSubCommands) {
-        baseCmd
-          .subcommand(`.${subCmd} [...args]`)
-          .action(async ({ session }, ...args) => {
-            // 将子命令名作为第一个参数
-            const allArgs = [subCmd, ...args]
-            const context = await buildExtensionContext(
-              ctx,
-              session,
-              allArgs,
-              characterService,
-              gameSessionService,
-              pluginRules,
-              templateAliasMap
-            )
-
-            try {
-              logger.debug(
-                `Calling ${scriptName} with suffix: "${context.suffix}"`
-              )
-              let result = adapter.callExtension(scriptName, context)
-
-              // 脚本执行后，重新读取名片缓存
-              let updatedCard = context.card
-              try {
-                const guildId = session?.guildId || session?.channelId || ''
-                if (guildId) {
-                  const cardKey = `card#${session.userId}`
-                  const cardData = await ctx.database.get(
-                    'koidice_group_data',
-                    {
-                      guildId,
-                      dataKey: cardKey
-                    }
-                  )
-                  if (cardData.length > 0) {
-                    updatedCard = cardData[0].dataValue || ''
-                  }
-                }
-              } catch (error) {
-                logger.debug('重新读取名片缓存失败:', error)
-              }
-
-              // 替换占位符
-              if (result && typeof result === 'string') {
-                result = replacePlaceholders(result, {
-                  username: session.username,
-                  userId: session.userId,
-                  guildId: session.guildId,
-                  channelId: session.channelId,
-                  charName: context.char?.__Name || context.char?.name,
-                  card: updatedCard
-                })
-                logger.debug(`Extension result (${scriptName}): ${result}`)
-              }
-
-              return result
-            } catch (error) {
-              logger.error(`Extension error (${scriptName}):`, error)
-              return `[错误] ${error.message}`
-            }
-          })
+        if (result) await session.send(result)
+        return
       }
+    }
+    return next()
+  }, true)
+  disposers.push(dispose)
+  return disposers
+}
 
-      // 添加权限检查
-      if (config.type === 'Game' && config.limit?.grp_id?.nor === 0) {
-        // 仅群聊可用
-        // TODO: 添加权限检查逻辑
+function compileMatchers(name: string, config: ReplyConfig) {
+  const keyword = config.keyword || {}
+  const result: RegisteredReply['matchers'] = []
+  const append = (mode: ReplyMatchMode, input?: string | string[]) => {
+    for (const value of asArray(input)) {
+      if (!value) continue
+      if (mode === 'regex') {
+        try {
+          result.push({ mode, value: new RegExp(value, 'u') })
+        } catch (error) {
+          logger.warn(`Invalid extension regex ${value}: ${String(error)}`)
+        }
+      } else {
+        result.push({ mode, value })
       }
-    } catch (error) {
-      logger.error(`Failed to register command ${cmdName}:`, error)
+    }
+  }
+  append('match', keyword.match ?? keyword.Match)
+  append('prefix', keyword.prefix ?? keyword.Prefix)
+  append('search', keyword.search ?? keyword.Search)
+  append('regex', keyword.regex ?? keyword.Regex)
+  if (!result.length) append('prefix', `.${name}`)
+  return result
+}
+
+function matchReply(
+  reply: RegisteredReply,
+  content: string,
+  mode: ReplyMatchMode
+): (MatchResult & { matchedLength: number }) | undefined {
+  const foldedContent = content.toLocaleLowerCase()
+  for (const matcher of reply.matchers) {
+    if (matcher.mode !== mode) continue
+    if (matcher.value instanceof RegExp) {
+      const match = matcher.value.exec(content)
+      if (match && match.index === 0 && match[0].length === content.length) {
+        return { suffix: match[1] ?? '', matchedLength: match[0].length }
+      }
+      continue
+    }
+    const keyword = matcher.value
+    const foldedKeyword = keyword.toLocaleLowerCase()
+    if (mode === 'match' && foldedContent === foldedKeyword) {
+      return { suffix: '', matchedLength: keyword.length }
+    }
+    if (mode === 'prefix' && foldedContent.startsWith(foldedKeyword)) {
+      return { suffix: content.slice(keyword.length).trim(), matchedLength: keyword.length }
+    }
+    if (mode === 'search') {
+      const index = foldedContent.indexOf(foldedKeyword)
+      if (index >= 0) {
+        return { suffix: content.slice(index + keyword.length).trim(), matchedLength: keyword.length }
+      }
     }
   }
 }
 
-/**
- * 构建扩展上下文
- */
-async function buildExtensionContext(
+async function executeReply(
   ctx: Context,
-  session: any,
-  args: string[],
+  adapter: DiceAdapter,
+  descriptor: DescriptorJson,
+  reply: RegisteredReply,
+  suffix: string,
+  session: Session,
   characterService: CharacterService,
   gameSessionService: GameSessionService,
-  pluginRules: Map<string, any>,
+  pluginRules: Map<string, unknown>,
   templateAliasMap?: Map<string, Record<string, string>>
-): Promise<any> {
-  // 加载角色卡数据
-  // 优先使用群组绑定的角色卡,如果没有则使用全局激活的角色卡
-  let charData
+): Promise<string> {
   try {
-    let activeCard
-
-    // 如果在群聊中,优先使用群组绑定的角色卡
-    if (session?.guildId) {
-      activeCard = await characterService.getBoundCard(session)
-      if (activeCard) {
-        logger.debug(`Using bound card: ${activeCard.cardName}`)
-      }
+    const context = await buildExtensionContext(
+      ctx,
+      session,
+      suffix,
+      characterService,
+      gameSessionService,
+      pluginRules,
+      templateAliasMap
+    )
+    let result = ''
+    const echo = normalizeEcho(reply.config.echo)
+    if (reply.scriptName) {
+      const snapshot = await loadDataSnapshot(ctx, context.uid, context.gid)
+      result = await adapter.callExtension(reply.scriptName, context, snapshot)
+      await persistWrites(ctx, adapter.drainExtensionDataWrites())
+    } else if (echo.deck?.length) {
+      result = echo.deck[Math.floor(Math.random() * echo.deck.length)] || ''
+    } else {
+      result = echo.text || ''
     }
+    return replacePlaceholders(result, {
+      username: session.username,
+      userId: session.userId,
+      guildId: session.guildId,
+      charName:
+        typeof context.char?.__Name === 'string'
+          ? context.char.__Name
+          : typeof context.char?.name === 'string'
+            ? context.char.name
+            : '',
+      card: context.card
+    })
+  } catch (error) {
+    logger.error(`Extension reply failed (${descriptor.name}):`, error)
+    return `[错误] ${error instanceof Error ? error.message : String(error)}`
+  }
+}
 
-    // 如果没有群组绑定,使用全局激活的角色卡
-    if (!activeCard) {
-      activeCard = await characterService.getActiveCard(session)
-      if (activeCard) {
-        logger.debug(`Using active card: ${activeCard.cardName}`)
-      }
-    }
-
-    if (activeCard) {
-      const attrs =
-        typeof activeCard.attributes === 'string'
-          ? JSON.parse(activeCard.attributes)
-          : activeCard.attributes
-      charData = {
-        __Name: activeCard.cardName,
-        name: activeCard.cardName,
-        type: activeCard.cardType,
-        ...attrs
-      }
+async function buildExtensionContext(
+  ctx: Context,
+  session: Session,
+  suffix: string,
+  characterService: CharacterService,
+  gameSessionService: GameSessionService,
+  pluginRules: Map<string, unknown>,
+  templateAliasMap?: Map<string, Record<string, string>>
+): Promise<ExtensionContext> {
+  let char: Record<string, unknown> | undefined
+  try {
+    const active =
+      (session.guildId && (await characterService.getBoundCard(session))) ||
+      (await characterService.getActiveCard(session))
+    if (active) {
+      const attributes =
+        typeof active.attributes === 'string'
+          ? JSON.parse(active.attributes)
+          : active.attributes
+      char = { __Name: active.cardName, name: active.cardName, type: active.cardType, ...attributes }
     }
   } catch (error) {
-    logger.debug('获取角色卡失败:', error)
+    logger.debug('读取扩展角色卡失败:', error)
   }
 
-  // 加载游戏会话数据
-  let gameData
+  let game: Record<string, unknown> = {}
   try {
-    const gameSession = await gameSessionService.getSession(session)
-    if (gameSession) {
-      gameData = gameSessionService.gameToContext(gameSession)
-      logger.debug(`gameData.pls after gameToContext:`, gameData.pls)
-
-      // 预先缓存所有游戏玩家的角色卡数据
-      const playerList = JSON.parse(gameSession.playerList || '[]')
-      logger.debug(
-        `Caching cards for ${playerList.length} players:`,
-        playerList
-      )
-      for (const playerId of playerList) {
-        try {
-          const playerCard = await characterService.getActiveCard({
-            userId: playerId,
-            platform: session.platform
-          } as any)
-          logger.debug(`Player ${playerId} card:`, playerCard)
-          if (playerCard) {
-            const attrs =
-              typeof playerCard.attributes === 'string'
-                ? JSON.parse(playerCard.attributes)
-                : playerCard.attributes
-            const cardData = {
-              __Name: playerCard.cardName,
-              name: playerCard.cardName,
-              type: playerCard.cardType,
-              ...attrs
-            }
-            // 序列化并缓存
-            const cacheKey = `player_card#${playerId}`
-            const guildId = session?.guildId || session?.channelId || ''
-            await ctx.database.upsert('koidice_group_data', [
-              {
-                guildId,
-                dataKey: cacheKey,
-                dataValue: JSON.stringify(cardData)
-              }
-            ])
-          }
-        } catch (_error) {
-          // 忽略缓存失败
-        }
-      }
-    }
-  } catch (_error) {
-    // 忽略获取游戏会话失败
+    const current = await gameSessionService.getSession(session)
+    if (current) game = gameSessionService.gameToContext(current)
+  } catch (error) {
+    logger.debug('读取扩展游戏会话失败:', error)
   }
 
-  // 读取缓存的名片
-  let cardText = ''
-  try {
-    const guildId = session?.guildId || session?.channelId || ''
-    if (guildId) {
-      const cardKey = `card#${session.userId}`
-      const cardData = await ctx.database.get('koidice_group_data', {
-        guildId,
-        dataKey: cardKey
+  const gid = session.guildId || session.channelId || ''
+  const cardRows = gid
+    ? await ctx.database.get('koidice_group_data', {
+        guildId: gid,
+        dataKey: `card#${session.userId}`
       })
-      if (cardData.length > 0) {
-        cardText = cardData[0].dataValue || ''
-      }
-    }
-  } catch (error) {
-    logger.debug('获取名片缓存失败:', error)
-  }
+    : []
 
-  // 准备扩展上下文
   return {
-    suffix: args.join(' '),
-    uid: session?.userId || '',
-    gid: session?.guildId || session?.channelId || '',
-    private: !session?.guildId,
-    char: charData,
-    card: cardText, // 缓存的名片文本
-    game: gameData || {},
+    suffix,
+    uid: session.userId || '',
+    gid,
+    private: !session.guildId,
+    char,
+    card: cardRows[0]?.dataValue || '',
+    game,
     pluginRules: Object.fromEntries(pluginRules),
-    templateAliasMap: templateAliasMap
-      ? Object.fromEntries(templateAliasMap)
-      : {},
-    // 获取其他玩家角色卡的函数（异步，但不在 Lua 中使用）
-    getPlayerCard: async (uid: string, gid?: string) => {
-      try {
-        const cards = await ctx.database.get('koidice_character_binding', {
-          userId: uid,
-          platform: session.platform,
-          guildId: gid || session.guildId || ''
-        })
-        if (cards.length > 0) {
-          const cardName = cards[0].cardName
-          const charCards = await ctx.database.get('koidice_character', {
-            userId: uid,
-            platform: session.platform,
-            cardName
-          })
-          if (charCards.length > 0) {
-            const card = charCards[0]
-            const attrs =
-              typeof card.attributes === 'string'
-                ? JSON.parse(card.attributes)
-                : card.attributes
-            return {
-              __Name: card.cardName,
-              name: card.cardName,
-              type: card.cardType,
-              ...attrs
-            }
-          }
-        }
-      } catch (error) {
-        logger.error('获取玩家角色卡失败:', error)
-      }
-      return undefined
-    },
-    // 数据存储回调
-    setGroupConf: async (gid: string, key: string, value: any) => {
-      try {
-        await ctx.database.upsert('koidice_group_data', [
-          {
-            guildId: gid,
-            dataKey: key,
-            dataValue: JSON.stringify(value)
-          }
-        ])
-      } catch (error) {
-        logger.error('设置群组配置失败:', error)
-      }
-    },
-    setGroupData: async (gid: string, key: string, value: any) => {
-      try {
-        await ctx.database.upsert('koidice_group_data', [
-          {
-            guildId: gid,
-            dataKey: key,
-            dataValue: JSON.stringify(value)
-          }
-        ])
-      } catch (error) {
-        logger.error('存储群组数据失败:', error)
-      }
-    },
-    getGroupData: async (gid: string, key: string) => {
-      try {
-        const rows = await ctx.database.get('koidice_group_data', {
-          guildId: gid,
-          dataKey: key
-        })
-        if (rows.length > 0) {
-          return JSON.parse(rows[0].dataValue)
-        }
-      } catch (error) {
-        logger.error('读取群组数据失败:', error)
-      }
-      return undefined
-    },
-    setUserData: async (uid: string, key: string, value: any) => {
-      try {
-        await ctx.database.upsert('koidice_user_data', [
-          {
-            userId: uid,
-            dataKey: key,
-            dataValue: JSON.stringify(value)
-          }
-        ])
-      } catch (error) {
-        logger.error('存储用户数据失败:', error)
-      }
-    },
-    getUserData: async (uid: string, key: string) => {
-      try {
-        const rows = await ctx.database.get('koidice_user_data', {
-          userId: uid,
-          dataKey: key
-        })
-        if (rows.length > 0) {
-          return JSON.parse(rows[0].dataValue)
-        }
-      } catch (error) {
-        logger.error('读取用户数据失败:', error)
-      }
-      return undefined
-    }
+    templateAliasMap: templateAliasMap ? Object.fromEntries(templateAliasMap) : {}
   }
+}
+
+async function loadDataSnapshot(
+  ctx: Context,
+  uid: string,
+  gid: string
+): Promise<ExtensionDataSnapshot> {
+  const users = uid
+    ? await ctx.database.get('koidice_user_data', { userId: uid })
+    : []
+  const groups = gid
+    ? await ctx.database.get('koidice_group_data', { guildId: gid })
+    : []
+  return {
+    users: users.map((row) => ({ id: uid, key: row.dataKey, value: row.dataValue })),
+    groups: groups.map((row) => ({ id: gid, key: row.dataKey, value: row.dataValue }))
+  }
+}
+
+async function persistWrites(ctx: Context, writes: ExtensionDataWrite[]) {
+  const userRows = writes
+    .filter((write) => write.scope === 'user')
+    .map((write) => ({ userId: write.id, dataKey: write.key, dataValue: write.value }))
+  const groupRows = writes
+    .filter((write) => write.scope === 'group')
+    .map((write) => ({ guildId: write.id, dataKey: write.key, dataValue: write.value }))
+  if (userRows.length) await ctx.database.upsert('koidice_user_data', userRows)
+  if (groupRows.length) await ctx.database.upsert('koidice_group_data', groupRows)
+}
+
+function allowsSession(limit: ReplyLimit | undefined, session: Session): boolean {
+  return (
+    allowsId(limit?.user_id, session.userId || '') &&
+    allowsId(limit?.grp_id, session.guildId || '')
+  )
+}
+
+function allowsId(limit: ReplyLimit['user_id'], id: string): boolean {
+  if (!limit) return true
+  if (typeof limit === 'string' || Array.isArray(limit)) return asArray(limit).includes(id)
+  const only = asArray(limit.only)
+  const not = asArray(limit.not)
+  if (only.length && !only.includes(id)) return false
+  if (not.includes(id)) return false
+  const nor = asArray(limit.nor).map(String)
+  if (nor.includes('0') && !id) return false
+  return !nor.includes(id)
+}
+
+function passesProbability(probability?: number): boolean {
+  if (!probability) return true
+  return Math.random() * 100 < Math.max(0, Math.min(100, probability))
+}
+
+function normalizeEcho(echo: ReplyConfig['echo']): ReplyEcho {
+  if (typeof echo === 'string') return { text: echo }
+  if (Array.isArray(echo)) return { deck: echo }
+  return echo || {}
+}
+
+function asArray<T>(value?: T | T[]): T[] {
+  return value == null ? [] : Array.isArray(value) ? value : [value]
 }

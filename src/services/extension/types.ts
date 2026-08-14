@@ -1,6 +1,5 @@
-/**
- * 原始 Dice 插件格式类型定义
- */
+export type ReplyType = 'Nor' | 'Order' | 'Reply' | 'Both' | 'Game'
+export type ReplyMatchMode = 'match' | 'prefix' | 'search' | 'regex'
 
 export interface DescriptorJson {
   name: string
@@ -10,89 +9,69 @@ export interface DescriptorJson {
   brief?: string
   desc?: string
   dice_build?: number
+  require?: string[]
   repo?: string
   comment?: string
 }
 
+export interface ReplyKeyword {
+  match?: string | string[]
+  prefix?: string | string[]
+  search?: string | string[]
+  regex?: string | string[]
+  Match?: string | string[]
+  Prefix?: string | string[]
+  Search?: string | string[]
+  Regex?: string | string[]
+}
+
+export interface ReplyEcho {
+  text?: string
+  deck?: string[]
+  lua?: string
+  js?: string
+}
+
+export interface ReplyIdLimit {
+  only?: string | string[]
+  not?: string | string[]
+  nor?: string | number | Array<string | number>
+}
+
+export interface ReplyLimit {
+  user_id?: ReplyIdLimit | string | string[]
+  grp_id?: ReplyIdLimit | string | string[]
+  prob?: number
+}
+
 export interface ReplyConfig {
-  type?: string // "Game" 等
-  rule?: string // 游戏规则，如 "Maid"
-  keyword?: {
-    prefix?: string // 命令前缀，如 ".team"
-  }
-  echo?: {
-    lua?: string // Lua 脚本名称
-    js?: string // JS 脚本名称
-  }
-  limit?: any // 限制条件
+  type?: ReplyType | Lowercase<ReplyType>
+  rule?: string
+  keyword?: ReplyKeyword
+  echo?: string | string[] | ReplyEcho
+  limit?: ReplyLimit
 }
 
 export interface LoadedPlugin {
   name: string
   path: string
   descriptor: DescriptorJson
-  scripts: Map<string, string> // scriptName -> code
-  commands: Map<string, ReplyConfig> // commandName -> config
-}
-
-/**
- * 扩展系统类型定义
- */
-
-export interface ExtensionManifest {
-  name: string
-  version: string
-  author?: string
-  description?: string
-  type: 'lua' | 'js'
-  /** 脚本文件映射: { "ScriptName": "path/to/script.lua" } */
-  scripts: Record<string, string>
-  /** 命令注册配置（可选） */
-  commands?: ExtensionCommand[]
-  /** 依赖的其他扩展 */
-  dependencies?: string[]
-}
-
-export interface ExtensionCommand {
-  /** 命令名称（不含前缀） */
-  name: string
-  /** 命令别名 */
-  alias?: string[]
-  /** 命令描述 */
-  description?: string
-  /** 调用的脚本名称 */
-  script: string
-  /** 游戏规则限制（如 "Maid"） */
-  rule?: string
-  /** 权限要求 */
-  permissions?: Array<'game' | 'group' | 'private'>
+  scripts: Map<string, string>
+  commands: Map<string, ReplyConfig>
+  scriptNames: Set<string>
+  disposers: Array<() => void>
+  templateKeys: Set<string>
+  ruleKeys: Set<string>
 }
 
 export interface ExtensionContext {
-  /** 命令参数（去除命令名后的部分） */
   suffix: string
-  /** 用户 ID */
   uid: string
-  /** 群组 ID（私聊时为空） */
-  gid?: string
-  /** 是否为私聊 */
+  gid: string
   private: boolean
-  /** 当前角色卡（如果有） */
-  char?: any
-  /** 游戏会话（如果有） */
-  game?: any
-  /** 获取其他玩家角色卡的回调 */
-  getPlayerCard?: (uid: string) => Promise<any>
-  /** 存储数据的回调 */
-  setGroupData?: (gid: string, key: string, value: any) => Promise<void>
-  getGroupData?: (gid: string, key: string) => Promise<any>
-  setUserData?: (uid: string, key: string, value: any) => Promise<void>
-  getUserData?: (uid: string, key: string) => Promise<any>
-}
-
-export interface LoadedExtension {
-  manifest: ExtensionManifest
-  path: string
-  loaded: boolean
-  commands: ExtensionCommand[]
+  char?: Record<string, unknown>
+  card: string
+  game: Record<string, unknown>
+  pluginRules: Record<string, unknown>
+  templateAliasMap: Record<string, Record<string, string>>
 }

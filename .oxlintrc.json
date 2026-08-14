@@ -19,6 +19,11 @@
     "coverage",
     "playwright-report",
     "test/fixtures",
-    "third_party"
+    "third_party",
+    "Dice",
+    "wasm/include/lua",
+    "wasm/include/QuickJS",
+    "wasm/include/yaml-cpp",
+    "wasm/include/simdutf"
   ]
 }

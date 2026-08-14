@@ -332,10 +332,17 @@ std::string LuaExtension::execute(const std::string& name, const AttrObject& con
 
 void LuaExtension::unload(const std::string& name) {
     auto it = scripts.find(name);
-    if (it != scripts.end()) {
-        luaL_unref(L, LUA_REGISTRYINDEX, it->second.functionRef);
-        scripts.erase(it);
+    if (it == scripts.end()) return;
+    luaL_unref(L, LUA_REGISTRYINDEX, it->second.functionRef);
+    for (const char* tableName : {"__KOIDICE_SCRIPTS__", "__KOIDICE_ORIGINAL_CODES__"}) {
+        lua_getglobal(L, tableName);
+        if (lua_istable(L, -1)) {
+            lua_pushnil(L);
+            lua_setfield(L, -2, name.c_str());
+        }
+        lua_pop(L, 1);
     }
+    scripts.erase(it);
 }
 
 bool LuaExtension::has(const std::string& name) const {

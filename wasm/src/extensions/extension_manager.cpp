@@ -2,10 +2,55 @@
 #include "lua_support.h"
 #include "js_support.h"
 #include <sstream>
+#include <vector>
 
 namespace koidice {
 namespace extensions {
 
+namespace {
+
+void appendJsonString(std::string& result, const std::string& value) {
+    static const char hex[] = "0123456789abcdef";
+    result.push_back('"');
+    for (unsigned char ch : value) {
+        switch (ch) {
+            case '"': result += "\\\""; break;
+            case '\\': result += "\\\\"; break;
+            case '\b': result += "\\b"; break;
+            case '\f': result += "\\f"; break;
+            case '\n': result += "\\n"; break;
+            case '\r': result += "\\r"; break;
+            case '\t': result += "\\t"; break;
+            default:
+                if (ch < 0x20) {
+                    result += "\\u00";
+                    result.push_back(hex[ch >> 4]);
+                    result.push_back(hex[ch & 0x0f]);
+                } else {
+                    result.push_back(static_cast<char>(ch));
+                }
+        }
+    }
+    result.push_back('"');
+}
+
+struct DataWrite {
+    const char* scope;
+    std::string id;
+    std::string key;
+    std::string value;
+};
+
+using DataSnapshot = std::map<std::string, std::map<std::string, std::string>>;
+
+std::string snapshotGet(const DataSnapshot& snapshot, const std::string& id, const std::string& key) {
+    const auto idIt = snapshot.find(id);
+    if (idIt == snapshot.end()) return "";
+    const auto valueIt = idIt->second.find(key);
+    return valueIt == idIt->second.end() ? "" : valueIt->second;
+}
+
+} // namespace
 // Pimpl 实现
 class ExtensionManager::Impl {
 public:
@@ -13,11 +58,9 @@ public:
     std::unique_ptr<JSExtension> jsExt;
     std::map<std::string, ExtensionInfo> extensions;
 
-    // 数据存储回调
-    DataGetCallback userDataGetCallback;
-    DataSetCallback userDataSetCallback;
-    DataGetCallback groupDataGetCallback;
-    DataSetCallback groupDataSetCallback;
+    DataSnapshot userData;
+    DataSnapshot groupData;
+    std::vector<DataWrite> dataWrites;
 
     Impl() {
         luaExt = std::make_unique<LuaExtension>();
@@ -27,9 +70,7 @@ public:
 
 ExtensionManager::ExtensionManager() : pImpl(std::make_unique<Impl>()) {}
 
-ExtensionManager::~ExtensionManager() {
-    cleanup();
-}
+ExtensionManager::~ExtensionManager() = default;
 
 ExtensionManager& ExtensionManager::getInstance() {
     static ExtensionManager instance;
@@ -134,55 +175,67 @@ ExtensionInfo ExtensionManager::getExtensionInfo(const std::string& name) {
     return ExtensionInfo();
 }
 
-// ============ 数据存储回调实现 ============
+// ============ Extension data snapshot/write journal ============
 
-void ExtensionManager::setUserDataGetCallback(DataGetCallback callback) {
-    pImpl->userDataGetCallback = callback;
+void ExtensionManager::clearExtensionData() {
+    pImpl->userData.clear();
+    pImpl->groupData.clear();
+    pImpl->dataWrites.clear();
 }
 
-void ExtensionManager::setUserDataSetCallback(DataSetCallback callback) {
-    pImpl->userDataSetCallback = callback;
+void ExtensionManager::preloadUserExtensionData(const std::string& uid, const std::string& key, const std::string& value) {
+    pImpl->userData[uid][key] = value;
 }
 
-void ExtensionManager::setGroupDataGetCallback(DataGetCallback callback) {
-    pImpl->groupDataGetCallback = callback;
+void ExtensionManager::preloadGroupExtensionData(const std::string& gid, const std::string& key, const std::string& value) {
+    pImpl->groupData[gid][key] = value;
 }
 
-void ExtensionManager::setGroupDataSetCallback(DataSetCallback callback) {
-    pImpl->groupDataSetCallback = callback;
+std::string ExtensionManager::drainExtensionDataWrites() {
+    std::string result = "[";
+    bool first = true;
+    for (const auto& write : pImpl->dataWrites) {
+        if (!first) result.push_back(',');
+        first = false;
+        result += "{\"scope\":";
+        appendJsonString(result, write.scope);
+        result += ",\"id\":";
+        appendJsonString(result, write.id);
+        result += ",\"key\":";
+        appendJsonString(result, write.key);
+        result += ",\"value\":";
+        appendJsonString(result, write.value);
+        result.push_back('}');
+    }
+    result.push_back(']');
+    pImpl->dataWrites.clear();
+    return result;
 }
 
 std::string ExtensionManager::callUserDataGet(const std::string& uid, const std::string& key) {
-    if (pImpl->userDataGetCallback) {
-        return pImpl->userDataGetCallback(uid, key);
-    }
-    return "";  // 如果回调未设置，返回空字符串
+    return snapshotGet(pImpl->userData, uid, key);
 }
 
 void ExtensionManager::callUserDataSet(const std::string& uid, const std::string& key, const std::string& value) {
-    if (pImpl->userDataSetCallback) {
-        pImpl->userDataSetCallback(uid, key, value);
-    }
+    pImpl->userData[uid][key] = value;
+    pImpl->dataWrites.push_back({"user", uid, key, value});
 }
 
 std::string ExtensionManager::callGroupDataGet(const std::string& gid, const std::string& key) {
-    if (pImpl->groupDataGetCallback) {
-        return pImpl->groupDataGetCallback(gid, key);
-    }
-    return "";  // 如果回调未设置，返回空字符串
+    return snapshotGet(pImpl->groupData, gid, key);
 }
 
 void ExtensionManager::callGroupDataSet(const std::string& gid, const std::string& key, const std::string& value) {
-    if (pImpl->groupDataSetCallback) {
-        pImpl->groupDataSetCallback(gid, key, value);
-    }
+    pImpl->groupData[gid][key] = value;
+    pImpl->dataWrites.push_back({"group", gid, key, value});
 }
 
 void ExtensionManager::cleanup() {
     if (pImpl) {
-        pImpl->luaExt->cleanup();
-        pImpl->jsExt->cleanup();
+        pImpl->luaExt = std::make_unique<LuaExtension>();
+        pImpl->jsExt = std::make_unique<JSExtension>();
         pImpl->extensions.clear();
+        clearExtensionData();
     }
 }
 

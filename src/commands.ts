@@ -1,5 +1,6 @@
 import type { Context } from 'koishi'
 import type { Config } from './config'
+import type { ExtensionService } from './services/extension-service'
 import { getDiceAdapter, type DiceAdapter } from './wasm'
 import { logger } from './index'
 import {
@@ -40,7 +41,7 @@ export async function initializeDiceAdapter() {
 export async function registerCommands(
   ctx: Context,
   config: Config,
-  extensionService?: any
+  extensionService?: ExtensionService | null
 ) {
   if (!diceAdapter) {
     throw new Error('Dice adapter not initialized')
@@ -58,7 +59,7 @@ export async function registerCommands(
     koidice,
     ctx,
     diceAdapter,
-    extensionService
+    extensionService || undefined
   )
   registerRollCommand(koidice, ctx, config, diceAdapter)
   registerNicknameCommands(koidice, ctx, config, diceAdapter)

@@ -1,6 +1,7 @@
 import type { Command, Context } from 'koishi'
 import type { Config } from '../config'
 import { logger } from '../index'
+import type { ExtensionService } from '../services/extension-service'
 
 /**
  * 扩展管理命令 .ext
@@ -9,7 +10,7 @@ export function registerExtensionCommands(
   parent: Command,
   _ctx: Context,
   _config: Config,
-  extensionService: any // ExtensionService 实例
+  extensionService: ExtensionService
 ) {
   if (!extensionService) {
     return
@@ -52,14 +53,15 @@ export function registerExtensionCommands(
         return lines.join('\n')
       } catch (error) {
         logger.error('列出插件失败:', error)
-        return `获取插件列表失败: ${error.message}`
+        const message = error instanceof Error ? error.message : String(error)
+        return `获取插件列表失败: ${message}`
       }
     })
 
   // 查看插件详情
   cmd
     .subcommand('.info <name:text>', '查看插件详细信息')
-    .action(async (name) => {
+    .action(async (_, name) => {
       if (!name) {
         return '请指定插件名称'
       }
@@ -89,21 +91,32 @@ export function registerExtensionCommands(
         if (commands.size > 0) {
           lines.push(`\n命令 (${commands.size}):`)
           for (const [cmdName, config] of commands) {
-            const prefix = config.keyword?.prefix || `.${cmdName}`
-            const scriptName = config.echo?.lua || config.echo?.js
-            lines.push(`  ${prefix} -> ${scriptName}`)
+            const keyword = config.keyword || {}
+            const trigger =
+              keyword.prefix ?? keyword.Prefix ??
+              keyword.match ?? keyword.Match ??
+              keyword.search ?? keyword.Search ??
+              keyword.regex ?? keyword.Regex ??
+              `.${cmdName}`
+            const echo = config.echo
+            const target =
+              typeof echo === 'object' && !Array.isArray(echo)
+                ? echo.lua || echo.js || echo.text || '[deck]'
+                : '[text]'
+            lines.push(`  ${String(trigger)} -> ${target}`)
           }
         }
 
         return lines.join('\n')
       } catch (error) {
         logger.error('获取插件信息失败:', error)
-        return `获取插件信息失败: ${error.message}`
+        const message = error instanceof Error ? error.message : String(error)
+        return `获取插件信息失败: ${message}`
       }
     })
 
   // 重载插件
-  cmd.subcommand('.reload <name:text>', '重新加载插件').action(async (name) => {
+  cmd.subcommand('.reload <name:text>', '重新加载插件').action(async (_, name) => {
     if (!name) {
       return '请指定插件名称'
     }
@@ -118,18 +131,18 @@ export function registerExtensionCommands(
       }
     } catch (error) {
       logger.error('重载插件失败:', error)
-      return `重载插件失败: ${error.message}`
+      const message = error instanceof Error ? error.message : String(error)
+      return `重载插件失败: ${message}`
     }
   })
 
   // 列出 WASM 中已加载的扩展
   cmd.subcommand('.wasm', '列出 WASM 中已加载的扩展').action(async () => {
     try {
-      // 这需要从 diceAdapter 获取
-      return '此功能需要访问 DiceAdapter 实例'
+      return extensionService.inspectNativeExtensions()
     } catch (error) {
       logger.error('获取 WASM 扩展列表失败:', error)
-      return `获取失败: ${error.message}`
+      return `获取失败: ${error instanceof Error ? error.message : String(error)}`
     }
   })
 

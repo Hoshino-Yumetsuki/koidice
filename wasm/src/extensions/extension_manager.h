@@ -2,10 +2,11 @@
 #ifndef EXTENSION_MANAGER_H
 #define EXTENSION_MANAGER_H
 
-#include <string>
+#include <cstring>
 #include <memory>
 #include <map>
 #include <functional>
+#include <string>
 #include "../../../Dice/Dice/DiceAttrVar.h"
 
 namespace koidice {
@@ -22,10 +23,8 @@ enum class ExtensionType {
 // 返回: 回复字符串
 using ExtensionCallback = std::function<std::string(const AttrObject&)>;
 
-// 数据存储回调函数类型
-// 用于从 C++ 回调到 TypeScript 层进行数据库操作
-using DataGetCallback = std::function<std::string(const std::string& id, const std::string& key)>;
-using DataSetCallback = std::function<void(const std::string& id, const std::string& key, const std::string& value)>;
+// Extension data is synchronously read by scripts from a snapshot populated by
+// the host. Mutations update that snapshot and are appended to a write journal.
 
 // 扩展信息
 struct ExtensionInfo {
@@ -74,30 +73,21 @@ public:
     // 获取扩展信息
     ExtensionInfo getExtensionInfo(const std::string& name);
 
-    // ============ 数据存储回调 ============
+    // Reset the extension data snapshots and pending write journal.
+    void clearExtensionData();
 
-    // 设置用户数据获取回调
-    void setUserDataGetCallback(DataGetCallback callback);
+    // Populate one snapshot entry before synchronous script execution.
+    void preloadUserExtensionData(const std::string& uid, const std::string& key, const std::string& value);
+    void preloadGroupExtensionData(const std::string& gid, const std::string& key, const std::string& value);
 
-    // 设置用户数据设置回调
-    void setUserDataSetCallback(DataSetCallback callback);
+    // Return pending writes as JSON and clear the journal. Each write is
+    // returned at most once.
+    std::string drainExtensionDataWrites();
 
-    // 设置群组数据获取回调
-    void setGroupDataGetCallback(DataGetCallback callback);
-
-    // 设置群组数据设置回调
-    void setGroupDataSetCallback(DataSetCallback callback);
-
-    // 调用用户数据获取回调
+    // Storage entry points used by the existing Lua and JavaScript APIs.
     std::string callUserDataGet(const std::string& uid, const std::string& key);
-
-    // 调用用户数据设置回调
     void callUserDataSet(const std::string& uid, const std::string& key, const std::string& value);
-
-    // 调用群组数据获取回调
     std::string callGroupDataGet(const std::string& gid, const std::string& key);
-
-    // 调用群组数据设置回调
     void callGroupDataSet(const std::string& gid, const std::string& key, const std::string& value);
 
     // 清理所有扩展

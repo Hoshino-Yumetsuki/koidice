@@ -211,6 +211,8 @@ target_compile_definitions(dice PRIVATE
     # Lua definitions
     LUA_USE_POSIX
     LUA_32BITS
+    # QuickJS checks EMSCRIPTEN (without the compiler's leading underscores).
+    EMSCRIPTEN
     # QuickJS definitions
     CONFIG_VERSION="2021-03-27"
     JS_STRICT_NAN_BOXING

@@ -59,17 +59,17 @@ export async function apply(ctx: Context, config: Config) {
   }
 
   // 注册所有命令
-  registerCommands(ctx, config, extensionService)
+  await registerCommands(ctx, config, extensionService)
 
   // 清理资源
   ctx.on('dispose', () => {
     logger.info('开始卸载 Dice 插件...')
 
     try {
-      // 清理旁观者列表
+      extensionService?.dispose()
+      diceAdapter?.cleanupExtensions()
       clearAllObservers()
-      logger.debug('已清理旁观者数据')
-
+      logger.debug('已清理扩展及旁观者数据')
       logger.info('Dice 插件卸载完成')
     } catch (error) {
       logger.error('插件卸载时发生错误:', error)

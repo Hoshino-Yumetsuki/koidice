@@ -245,6 +245,26 @@ EMSCRIPTEN_BINDINGS(dice_module) {
         return extensions::ExtensionManager::getInstance().hasExtension(name);
     }));
 
+    function("clearExtensionData", optional_override([]() {
+        extensions::ExtensionManager::getInstance().clearExtensionData();
+    }));
+
+    function("preloadUserExtensionData", optional_override([](const std::string& uid, const std::string& key, const std::string& value) {
+        extensions::ExtensionManager::getInstance().preloadUserExtensionData(uid, key, value);
+    }));
+
+    function("preloadGroupExtensionData", optional_override([](const std::string& gid, const std::string& key, const std::string& value) {
+        extensions::ExtensionManager::getInstance().preloadGroupExtensionData(gid, key, value);
+    }));
+
+    function("drainExtensionDataWrites", optional_override([]() {
+        return extensions::ExtensionManager::getInstance().drainExtensionDataWrites();
+    }));
+
+    function("cleanupExtensions", optional_override([]() {
+        extensions::ExtensionManager::getInstance().cleanup();
+    }));
+
     // === 注册容器 ===
     register_vector<std::string>("VectorString");
 }

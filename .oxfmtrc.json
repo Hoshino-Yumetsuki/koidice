@@ -7,5 +7,12 @@
   "endOfLine": "lf",
   "trailingComma": "none",
   "sortPackageJson": false,
-  "ignorePatterns": ["third_party"]
+  "ignorePatterns": [
+    "third_party",
+    "Dice",
+    "wasm/include/lua",
+    "wasm/include/QuickJS",
+    "wasm/include/yaml-cpp",
+    "wasm/include/simdutf"
+  ]
 }

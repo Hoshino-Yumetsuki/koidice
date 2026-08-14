@@ -121,6 +121,23 @@ export interface CommandResult {
   errorMsg?: string
 }
 
+export interface ExtensionDataEntry {
+  id: string
+  key: string
+  value: string
+}
+
+export interface ExtensionDataSnapshot {
+  users?: ExtensionDataEntry[]
+  groups?: ExtensionDataEntry[]
+}
+
+export interface ExtensionDataWrite extends ExtensionDataEntry {
+  scope: 'user' | 'group'
+}
+
+export type ExtensionContext = object
+
 /**
  * Dice WASM 模块接口
  */
@@ -207,15 +224,6 @@ export interface DiceModule {
   listRuleKeys(): string[]
   listRulesBySystem(system: string): string[]
 
-  // 角色卡功能
-  createCharacter(characterName: string): boolean
-  setCharacterAttr(
-    characterName: string,
-    attrName: string,
-    attrValue: number
-  ): boolean
-  getCharacterAttr(characterName: string, attrName: string): number
-  deleteCharacter(characterName: string): boolean
 
   // 工具函数
   initialize(): boolean
@@ -225,8 +233,16 @@ export interface DiceModule {
   loadLuaExtension(name: string, code: string, originalCode: string): boolean
   /** 加载 JavaScript 扩展 */
   loadJSExtension(name: string, code: string): boolean
-  /** 调用扩展 */
-  callExtension(name: string, context: any): string
+  /** 调用扩展 synchronously after its data snapshot is prepared */
+  callExtension(name: string, context: ExtensionContext): string
+  /** Reset extension data snapshots and pending writes */
+  clearExtensionData(): void
+  preloadUserExtensionData(uid: string, key: string, value: string): void
+  preloadGroupExtensionData(gid: string, key: string, value: string): void
+  /** Return pending writes as JSON and clear the journal */
+  drainExtensionDataWrites(): string
+  /** Unload every extension runtime and clear extension data */
+  cleanupExtensions(): void
   /** 卸载扩展 */
   unloadExtension(name: string): boolean
   /** 列出所有扩展 */

@@ -8,7 +8,10 @@ import type {
   InitiativeRollResult,
   InitiativeTurnResult,
   DeckDrawResult,
-  RuleQueryResult
+  RuleQueryResult,
+  ExtensionContext,
+  ExtensionDataSnapshot,
+  ExtensionDataWrite
 } from './types'
 import { SuccessLevel } from './types'
 import createDiceModule from '../../lib/dice.js'
@@ -316,41 +319,6 @@ export class DiceAdapter {
     return module.listRulesBySystem(system)
   }
 
-  /**
-   * 创建角色卡
-   */
-  createCharacter(name: string): boolean {
-    const module = this.ensureModule()
-    return module.createCharacter(name)
-  }
-
-  /**
-   * 设置角色属性
-   */
-  setCharacterAttr(
-    characterName: string,
-    attrName: string,
-    value: number
-  ): boolean {
-    const module = this.ensureModule()
-    return module.setCharacterAttr(characterName, attrName, value)
-  }
-
-  /**
-   * 获取角色属性
-   */
-  getCharacterAttr(characterName: string, attrName: string): number {
-    const module = this.ensureModule()
-    return module.getCharacterAttr(characterName, attrName)
-  }
-
-  /**
-   * 删除角色卡
-   */
-  deleteCharacter(name: string): boolean {
-    const module = this.ensureModule()
-    return module.deleteCharacter(name)
-  }
 
   /**
    * 获取版本信息（从 package.json 读取）
@@ -629,14 +597,48 @@ export class DiceAdapter {
   }
 
   /**
-   * 调用扩展
-   * @param name 扩展名称
-   * @param context 上下文对象
-   * @returns 扩展执行结果
+   * Invoke an extension after optionally replacing its in-memory data snapshot.
    */
-  callExtension(name: string, context: any): string {
+  async callExtension(
+    name: string,
+    context: ExtensionContext,
+    snapshot?: ExtensionDataSnapshot
+  ): Promise<string> {
     const module = this.ensureModule()
+    if (snapshot) {
+      module.clearExtensionData()
+      for (const entry of snapshot.users ?? []) {
+        module.preloadUserExtensionData(entry.id, entry.key, entry.value)
+      }
+      for (const entry of snapshot.groups ?? []) {
+        module.preloadGroupExtensionData(entry.id, entry.key, entry.value)
+      }
+    }
     return module.callExtension(name, context)
+  }
+
+  clearExtensionData(): void {
+    this.ensureModule().clearExtensionData()
+  }
+
+  preloadUserExtensionData(uid: string, key: string, value: string): void {
+    this.ensureModule().preloadUserExtensionData(uid, key, value)
+  }
+
+  preloadGroupExtensionData(gid: string, key: string, value: string): void {
+    this.ensureModule().preloadGroupExtensionData(gid, key, value)
+  }
+
+  drainExtensionDataWrites(): ExtensionDataWrite[] {
+    const writes: unknown = JSON.parse(
+      this.ensureModule().drainExtensionDataWrites()
+    )
+    // The native binding is the sole producer and serializes this exact shape.
+    return writes as ExtensionDataWrite[]
+  }
+
+  cleanupExtensions(): void {
+    this.ensureModule().cleanupExtensions()
   }
 
   /**
