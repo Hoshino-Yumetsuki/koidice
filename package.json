@@ -23,8 +23,8 @@
     "build:ts": "yarn rolldown -c rolldown.config.js",
     "build": "yarn build:wasm && yarn build:ts",
     "publish": "yarn npm publish",
-    "lint": "biome check && biome lint",
-    "lint-fix": "biome format --write && biome lint --write"
+    "lint": "oxlint",
+    "lint-fix": "oxlint --fix && oxfmt"
   },
   "license": "MPL-2.0",
   "homepage": "https://github.com/Hoshino-Yumetsuki/koidice",
@@ -42,14 +42,16 @@
     "koishi": "^4.17.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.4",
-    "@rollup/plugin-yaml": "^4.1.2",
+    "@rollup/plugin-yaml": "^5.0.0",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^24.10.0",
-    "koishi": "^4.18.9",
+    "@types/node": "^26.2.0",
+    "koishi": "^4.18.11",
     "module": "^2.0.0",
-    "rolldown": "1.0.0-beta.47",
-    "rolldown-plugin-dts": "^0.17.3"
+    "oxfmt": "^0.63.0",
+    "oxlint": "^1.78.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "rolldown": "^1.2.4",
+    "rolldown-plugin-dts": "^0.28.2"
   },
   "koishi": {
     "description": {
@@ -58,7 +60,7 @@
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
-    "fast-xml-parser": "^5.3.1",
-    "js-yaml": "^4.1.0"
+    "fast-xml-parser": "^5.10.1",
+    "js-yaml": "^5.2.3"
   }
 }
