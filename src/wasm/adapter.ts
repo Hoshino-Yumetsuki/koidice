@@ -1,6 +1,7 @@
 import { logger, version } from '../index';
 import type {
   DiceModule,
+  EmscriptenModuleConfig,
   RollResult,
   COCCheckResult,
   SkillCheckResult,
@@ -14,7 +15,12 @@ import type {
   ExtensionDataWrite
 } from './types';
 import { SuccessLevel } from './types';
-import createDiceModule from '../../lib/dice.js';
+type DiceModuleFactory = (config?: EmscriptenModuleConfig) => Promise<DiceModule>;
+
+async function loadDiceModule(): Promise<DiceModuleFactory> {
+  // The generated ES module must stay outside the CommonJS plugin bundle.
+  return (await import(new URL('./dice.js', import.meta.url).href)).default;
+}
 
 // 模块级别的缓存变量
 let wasmModule: DiceModule | null = null;
@@ -51,6 +57,7 @@ export async function initDiceModule(): Promise<DiceModule> {
   modulePromise = (async () => {
     try {
       // Configure stdout/stderr redirection before module initialization
+      const createDiceModule = await loadDiceModule();
       const module = (await createDiceModule({
         print: (text: string) => {
           if (text) logger.debug(`[WASM] ${text}`);
