@@ -1,17 +1,14 @@
-import type { DescriptorJson } from './types'
+import type { DescriptorJson } from './types';
 
 /**
  * 生成 Lua 脚本包装代码
  */
-export function wrapLuaScript(
-  code: string,
-  _descriptor: DescriptorJson
-): string {
-  const trimmedCode = code.trim()
+export function wrapLuaScript(code: string, _descriptor: DescriptorJson): string {
+  const trimmedCode = code.trim();
 
   // 如果已经是函数格式，直接返回
   if (trimmedCode.match(/^return\s+function/)) {
-    return trimmedCode
+    return trimmedCode;
   }
 
   // 包装脚本，提供全局函数访问
@@ -259,7 +256,7 @@ ${code}
   end
 
   return __result
-end`
+end`;
 }
 
 /**
@@ -268,12 +265,12 @@ end`
 export function replacePlaceholders(
   result: string,
   context: {
-    username?: string
-    userId?: string
-    guildId?: string
-    channelId?: string
-    charName?: string
-    card?: string
+    username?: string;
+    userId?: string;
+    guildId?: string;
+    channelId?: string;
+    charName?: string;
+    card?: string;
   }
 ): string {
   return result
@@ -282,5 +279,5 @@ export function replacePlaceholders(
     .replace(/\{uid\}/g, context.userId || '')
     .replace(/\{gid\}/g, context.guildId || context.channelId || '')
     .replace(/\{card\}/g, context.card || context.charName || '角色卡')
-    .replace(/\{pc\}/g, context.charName || '')
+    .replace(/\{pc\}/g, context.charName || '');
 }

@@ -1,1 +1,1 @@
-export * from './coc'
+export * from './coc';

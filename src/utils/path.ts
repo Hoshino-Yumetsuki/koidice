@@ -1,5 +1,5 @@
-import { resolve } from 'node:path'
-import { existsSync, mkdirSync } from 'node:fs'
+import { resolve } from 'node:path';
+import { existsSync, mkdirSync } from 'node:fs';
 
 /**
  * 获取 Koishi 数据目录路径
@@ -7,14 +7,14 @@ import { existsSync, mkdirSync } from 'node:fs'
  */
 export function getDataPath(): string {
   // Koishi 的数据目录通常在工作目录的 data 文件夹下
-  const dataDir = resolve(process.cwd(), 'data', 'koidice')
+  const dataDir = resolve(process.cwd(), 'data', 'koidice');
 
   // 确保目录存在
   if (!existsSync(dataDir)) {
-    mkdirSync(dataDir, { recursive: true })
+    mkdirSync(dataDir, { recursive: true });
   }
 
-  return dataDir
+  return dataDir;
 }
 
 /**
@@ -23,7 +23,7 @@ export function getDataPath(): string {
  * @returns 完整文件路径
  */
 export function getConfigPath(filename: string): string {
-  return resolve(getDataPath(), filename)
+  return resolve(getDataPath(), filename);
 }
 
 /**
@@ -31,13 +31,13 @@ export function getConfigPath(filename: string): string {
  * @returns 角色卡数据目录
  */
 export function getCharacterDataPath(): string {
-  const charDir = resolve(getDataPath(), 'characters')
+  const charDir = resolve(getDataPath(), 'characters');
 
   if (!existsSync(charDir)) {
-    mkdirSync(charDir, { recursive: true })
+    mkdirSync(charDir, { recursive: true });
   }
 
-  return charDir
+  return charDir;
 }
 
 /**
@@ -45,13 +45,13 @@ export function getCharacterDataPath(): string {
  * @returns 牌堆数据目录
  */
 export function getDeckDataPath(): string {
-  const deckDir = resolve(getDataPath(), 'decks')
+  const deckDir = resolve(getDataPath(), 'decks');
 
   if (!existsSync(deckDir)) {
-    mkdirSync(deckDir, { recursive: true })
+    mkdirSync(deckDir, { recursive: true });
   }
 
-  return deckDir
+  return deckDir;
 }
 
 /**
@@ -59,11 +59,11 @@ export function getDeckDataPath(): string {
  * @returns 规则数据目录
  */
 export function getRulesDataPath(): string {
-  const rulesDir = resolve(getDataPath(), 'rules')
+  const rulesDir = resolve(getDataPath(), 'rules');
 
   if (!existsSync(rulesDir)) {
-    mkdirSync(rulesDir, { recursive: true })
+    mkdirSync(rulesDir, { recursive: true });
   }
 
-  return rulesDir
+  return rulesDir;
 }

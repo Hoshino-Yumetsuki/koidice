@@ -1,86 +1,84 @@
-import { type Context, Logger } from 'koishi'
-import type { Config } from './config'
-import { initializeDiceAdapter, registerCommands } from './commands'
-import { clearAllObservers } from './commands/observer'
-import { readFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { extendDatabase } from './database'
-import { ExtensionService } from './services/extension-service'
+import { type Context, Logger } from 'koishi';
+import type { Config } from './config';
+import { initializeDiceAdapter, registerCommands } from './commands';
+import { clearAllObservers } from './commands/observer';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { extendDatabase } from './database';
+import { ExtensionService } from './services/extension-service';
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const packageJson = JSON.parse(
-  readFileSync(resolve(__dirname, '../package.json'), 'utf-8')
-)
-export const version = packageJson.version
-import { getDataPath } from './utils/path'
-import { createLogger, setLoggerLevel } from './utils/logger'
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf-8'));
+export const version = packageJson.version;
+import { getDataPath } from './utils/path';
+import { createLogger, setLoggerLevel } from './utils/logger';
 
-export let logger: Logger
+export let logger: Logger;
 
 export const inject = {
   required: ['database']
-}
+};
 
 export async function apply(ctx: Context, config: Config) {
-  logger = createLogger(ctx, 'koidice')
-  setupLogger(config)
+  logger = createLogger(ctx, 'koidice');
+  setupLogger(config);
 
   // 扩展数据库表
-  extendDatabase(ctx)
+  extendDatabase(ctx);
 
   // 确保数据目录存在
   try {
-    const dataPath = getDataPath()
-    logger.info(`数据目录: ${dataPath}`)
+    const dataPath = getDataPath();
+    logger.info(`数据目录: ${dataPath}`);
   } catch (error) {
-    logger.error('创建数据目录失败:', error)
+    logger.error('创建数据目录失败:', error);
   }
 
   // 初始化WASM模块
-  let diceAdapter
+  let diceAdapter;
   try {
-    diceAdapter = await initializeDiceAdapter()
+    diceAdapter = await initializeDiceAdapter();
   } catch (error) {
-    logger.error('Dice WASM模块加载失败:', error)
-    throw error
+    logger.error('Dice WASM模块加载失败:', error);
+    throw error;
   }
 
   // 初始化扩展系统（始终启用）
-  let extensionService: ExtensionService | null = null
+  let extensionService: ExtensionService | null = null;
   try {
-    logger.info('正在初始化扩展系统...')
-    extensionService = new ExtensionService(ctx, diceAdapter)
-    await extensionService.initialize()
+    logger.info('正在初始化扩展系统...');
+    extensionService = new ExtensionService(ctx, diceAdapter);
+    await extensionService.initialize();
   } catch (error) {
-    logger.error('扩展系统初始化失败:', error)
+    logger.error('扩展系统初始化失败:', error);
     // 不抛出错误，允许插件继续运行
   }
 
   // 注册所有命令
-  await registerCommands(ctx, config, extensionService)
+  await registerCommands(ctx, config, extensionService);
 
   // 清理资源
   ctx.on('dispose', () => {
-    logger.info('开始卸载 Dice 插件...')
+    logger.info('开始卸载 Dice 插件...');
 
     try {
-      extensionService?.dispose()
-      diceAdapter?.cleanupExtensions()
-      clearAllObservers()
-      logger.debug('已清理扩展及旁观者数据')
-      logger.info('Dice 插件卸载完成')
+      extensionService?.dispose();
+      diceAdapter?.cleanupExtensions();
+      clearAllObservers();
+      logger.debug('已清理扩展及旁观者数据');
+      logger.info('Dice 插件卸载完成');
     } catch (error) {
-      logger.error('插件卸载时发生错误:', error)
+      logger.error('插件卸载时发生错误:', error);
     }
-  })
+  });
 }
 
 function setupLogger(config: Config) {
   if (config.isLog) {
-    setLoggerLevel(Logger.DEBUG)
+    setLoggerLevel(Logger.DEBUG);
   }
 }
 
-export * from './config'
+export * from './config';

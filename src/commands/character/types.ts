@@ -6,17 +6,17 @@
  * 属性操作类型
  */
 export type AttributeOperation = {
-  attr: string
-  op: 'set' | 'add' | 'sub'
-  value: string | number
-}
+  attr: string;
+  op: 'set' | 'add' | 'sub';
+  value: string | number;
+};
 
 /**
  * 解析后的命令参数
  */
 export interface ParsedStCommand {
-  cardName?: string
-  operations: AttributeOperation[]
+  cardName?: string;
+  operations: AttributeOperation[];
 }
 
 /**
@@ -66,12 +66,12 @@ export const ATTRIBUTE_ALIASES: Record<string, string> = {
   mov: '移动力',
   移动力: '移动力',
   move: '移动力'
-}
+};
 
 /**
  * 规范化属性名
  */
 export function normalizeAttributeName(name: string): string {
-  const lower = name.toLowerCase().trim()
-  return ATTRIBUTE_ALIASES[lower] || name
+  const lower = name.toLowerCase().trim();
+  return ATTRIBUTE_ALIASES[lower] || name;
 }

@@ -1,4 +1,4 @@
-import { logger, version } from '../index'
+import { logger, version } from '../index';
 import type {
   DiceModule,
   RollResult,
@@ -12,14 +12,14 @@ import type {
   ExtensionContext,
   ExtensionDataSnapshot,
   ExtensionDataWrite
-} from './types'
-import { SuccessLevel } from './types'
-import createDiceModule from '../../lib/dice.js'
+} from './types';
+import { SuccessLevel } from './types';
+import createDiceModule from '../../lib/dice.js';
 
 // 模块级别的缓存变量
-let wasmModule: DiceModule | null = null
-let modulePromise: Promise<DiceModule> | null = null
-let isPreloading = false
+let wasmModule: DiceModule | null = null;
+let modulePromise: Promise<DiceModule> | null = null;
+let isPreloading = false;
 
 /**
  * Start preloading the WASM module in the background
@@ -27,13 +27,13 @@ let isPreloading = false
  */
 function startPreload(): void {
   if (isPreloading || wasmModule || modulePromise) {
-    return
+    return;
   }
-  isPreloading = true
+  isPreloading = true;
   initDiceModule().catch(() => {
     // Silently fail, will retry on actual use
-    isPreloading = false
-  })
+    isPreloading = false;
+  });
 }
 
 /**
@@ -41,11 +41,11 @@ function startPreload(): void {
  */
 export async function initDiceModule(): Promise<DiceModule> {
   if (wasmModule) {
-    return wasmModule
+    return wasmModule;
   }
 
   if (modulePromise) {
-    return modulePromise
+    return modulePromise;
   }
 
   modulePromise = (async () => {
@@ -53,54 +53,54 @@ export async function initDiceModule(): Promise<DiceModule> {
       // Configure stdout/stderr redirection before module initialization
       const module = (await createDiceModule({
         print: (text: string) => {
-          if (text) logger.debug(`[WASM] ${text}`)
+          if (text) logger.debug(`[WASM] ${text}`);
         },
         printErr: (text: string) => {
-          if (text) logger.error(`[WASM] ${text}`)
+          if (text) logger.error(`[WASM] ${text}`);
         }
-      })) as DiceModule
-      wasmModule = module
-      isPreloading = false
-      return module
+      })) as DiceModule;
+      wasmModule = module;
+      isPreloading = false;
+      return module;
     } catch (error) {
-      modulePromise = null
-      isPreloading = false
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(`Failed to initialize Dice WASM module: ${message}`)
+      modulePromise = null;
+      isPreloading = false;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to initialize Dice WASM module: ${message}`);
     }
-  })()
+  })();
 
-  return modulePromise
+  return modulePromise;
 }
 
 /**
  * Check if WASM module is ready (synchronously)
  */
 export function isModuleReady(): boolean {
-  return wasmModule !== null
+  return wasmModule !== null;
 }
 
 // Start preloading immediately when this module is imported
-startPreload()
+startPreload();
 
 /**
  * Dice WASM 适配器
  * 提供更友好的TypeScript接口
  */
 export class DiceAdapter {
-  private module: DiceModule | null = null
-  private _initialized = false
+  private module: DiceModule | null = null;
+  private _initialized = false;
 
   /**
    * 初始化适配器
    */
   async initialize(): Promise<void> {
     if (this._initialized) {
-      return
+      return;
     }
 
-    this.module = await initDiceModule()
-    this._initialized = true
+    this.module = await initDiceModule();
+    this._initialized = true;
   }
 
   /**
@@ -108,19 +108,19 @@ export class DiceAdapter {
    */
   private ensureModule(): DiceModule {
     if (this._initialized && this.module) {
-      return this.module
+      return this.module;
     }
 
     // Try auto-initialization if module is already loaded
     if (wasmModule && !this._initialized) {
-      this.module = wasmModule
-      this._initialized = true
-      return this.module
+      this.module = wasmModule;
+      this._initialized = true;
+      return this.module;
     }
 
     throw new Error(
       'Dice WASM module not initialized. WASM module is still loading. Please wait a moment or call await adapter.initialize() first.'
-    )
+    );
   }
 
   // ============ 新架构：统一命令处理器 ============
@@ -142,15 +142,8 @@ export class DiceAdapter {
     isSimple = false,
     defaultDice = 100
   ) {
-    const module = this.ensureModule()
-    return module.processRoll(
-      rawCommand,
-      userId,
-      channelId,
-      isHidden,
-      isSimple,
-      defaultDice
-    )
+    const module = this.ensureModule();
+    return module.processRoll(rawCommand, userId, channelId, isHidden, isSimple, defaultDice);
   }
 
   /**
@@ -160,16 +153,16 @@ export class DiceAdapter {
    * @param rule COC房规
    */
   processCheck(rawCommand: string, userId: string, rule = 0) {
-    const module = this.ensureModule()
-    return module.processCheck(rawCommand, userId, rule)
+    const module = this.ensureModule();
+    return module.processCheck(rawCommand, userId, rule);
   }
 
   /**
    * 处理COC检定（新架构）
    */
   processCOCCheck(skillValue: number, bonusDice = 0) {
-    const module = this.ensureModule()
-    return module.processCOCCheck(skillValue, bonusDice)
+    const module = this.ensureModule();
+    return module.processCOCCheck(skillValue, bonusDice);
   }
 
   // ============ 旧接口（保持兼容） ============
@@ -181,8 +174,8 @@ export class DiceAdapter {
    * @returns 掷骰结果
    */
   roll(expression: string, defaultDice = 100): RollResult {
-    const module = this.ensureModule()
-    return module.rollDice(expression, defaultDice)
+    const module = this.ensureModule();
+    return module.rollDice(expression, defaultDice);
   }
 
   /**
@@ -192,8 +185,8 @@ export class DiceAdapter {
    * @returns 检定结果
    */
   cocCheck(skillValue: number, bonusDice = 0): COCCheckResult {
-    const module = this.ensureModule()
-    return module.cocCheck(skillValue, bonusDice)
+    const module = this.ensureModule();
+    return module.cocCheck(skillValue, bonusDice);
   }
 
   /**
@@ -203,8 +196,8 @@ export class DiceAdapter {
    * @returns 检定结果
    */
   skillCheck(expression: string, rule = 1): SkillCheckResult {
-    const module = this.ensureModule()
-    return module.skillCheck(expression, rule)
+    const module = this.ensureModule();
+    return module.skillCheck(expression, rule);
   }
 
   /**
@@ -214,9 +207,9 @@ export class DiceAdapter {
    * @returns 是否成功
    */
   hiddenRoll(expression: string, defaultDice = 100): boolean {
-    const module = this.ensureModule()
-    const result = module.hiddenRoll(expression, defaultDice)
-    return result.success
+    const module = this.ensureModule();
+    const result = module.hiddenRoll(expression, defaultDice);
+    return result.success;
   }
 
   /**
@@ -225,8 +218,8 @@ export class DiceAdapter {
    * @param defaultDice 默认骰子面数
    */
   getMaxValue(expression: string, defaultDice = 100): number {
-    const module = this.ensureModule()
-    return module.getMaxValue(expression, defaultDice)
+    const module = this.ensureModule();
+    return module.getMaxValue(expression, defaultDice);
   }
 
   /**
@@ -235,8 +228,8 @@ export class DiceAdapter {
    * @param defaultDice 默认骰子面数
    */
   getMinValue(expression: string, defaultDice = 100): number {
-    const module = this.ensureModule()
-    return module.getMinValue(expression, defaultDice)
+    const module = this.ensureModule();
+    return module.getMinValue(expression, defaultDice);
   }
 
   // ============ 牌堆功能 ============
@@ -247,8 +240,8 @@ export class DiceAdapter {
    * @param count 抽取数量
    */
   drawFromDeck(deckName: string, count: number = 1): DeckDrawResult {
-    const module = this.ensureModule()
-    return module.drawFromDeck(deckName, count)
+    const module = this.ensureModule();
+    return module.drawFromDeck(deckName, count);
   }
 
   /**
@@ -257,32 +250,32 @@ export class DiceAdapter {
    * @param count 抽取数量，-1表示全部
    */
   shuffleDeck(deckName: string, count: number = -1): DeckDrawResult {
-    const module = this.ensureModule()
-    return module.shuffleDeck(deckName, count)
+    const module = this.ensureModule();
+    return module.shuffleDeck(deckName, count);
   }
 
   /**
    * 列出所有牌堆
    */
   listDecks(): string {
-    const module = this.ensureModule()
-    return module.listDecks()
+    const module = this.ensureModule();
+    return module.listDecks();
   }
 
   /**
    * 获取牌堆大小
    */
   getDeckSize(deckName: string): number {
-    const module = this.ensureModule()
-    return module.getDeckSize(deckName)
+    const module = this.ensureModule();
+    return module.getDeckSize(deckName);
   }
 
   /**
    * 检查牌堆是否存在
    */
   deckExists(deckName: string): boolean {
-    const module = this.ensureModule()
-    return module.deckExists(deckName)
+    const module = this.ensureModule();
+    return module.deckExists(deckName);
   }
 
   // ============ 规则查询功能 ============
@@ -291,41 +284,40 @@ export class DiceAdapter {
    * 查询规则（支持 "system:keyword" 格式）
    */
   queryRule(query: string): RuleQueryResult {
-    const module = this.ensureModule()
-    return module.queryRule(query)
+    const module = this.ensureModule();
+    return module.queryRule(query);
   }
 
   /**
    * 按系统查询规则
    */
   queryRuleBySystem(system: string, keyword: string): RuleQueryResult {
-    const module = this.ensureModule()
-    return module.queryRuleBySystem(system, keyword)
+    const module = this.ensureModule();
+    return module.queryRuleBySystem(system, keyword);
   }
 
   /**
    * 列出所有规则关键词
    */
   listRuleKeys(): string[] {
-    const module = this.ensureModule()
-    return module.listRuleKeys()
+    const module = this.ensureModule();
+    return module.listRuleKeys();
   }
 
   /**
    * 列出指定系统的规则
    */
   listRulesBySystem(system: string): string[] {
-    const module = this.ensureModule()
-    return module.listRulesBySystem(system)
+    const module = this.ensureModule();
+    return module.listRulesBySystem(system);
   }
-
 
   /**
    * 获取版本信息（从 package.json 读取）
    */
   getVersion(): string {
     // 直接返回从 index.ts 导入的版本号，不需要调用 WASM
-    return version
+    return version;
   }
 
   // ============ 人物作成功能 ============
@@ -334,32 +326,32 @@ export class DiceAdapter {
    * COC7版人物作成（简略版）
    */
   generateCOC7(): string {
-    const module = this.ensureModule()
-    return module.generateCOC7Character()
+    const module = this.ensureModule();
+    return module.generateCOC7Character();
   }
 
   /**
    * COC6版人物作成（简略版）
    */
   generateCOC6(): string {
-    const module = this.ensureModule()
-    return module.generateCOC6Character()
+    const module = this.ensureModule();
+    return module.generateCOC6Character();
   }
 
   /**
    * COC7版人物作成（详细版，包含背景）
    */
   generateCOC7Detailed(): string {
-    const module = this.ensureModule()
-    return module.generateCOC7CharacterDetailed()
+    const module = this.ensureModule();
+    return module.generateCOC7CharacterDetailed();
   }
 
   /**
    * COC6版人物作成（详细版，包含背景）
    */
   generateCOC6Detailed(): string {
-    const module = this.ensureModule()
-    return module.generateCOC6CharacterDetailed()
+    const module = this.ensureModule();
+    return module.generateCOC6CharacterDetailed();
   }
 
   /**
@@ -367,8 +359,8 @@ export class DiceAdapter {
    * @param count 生成数量
    */
   generateCOC7Multiple(count: number): string {
-    const module = this.ensureModule()
-    return module.generateCOC7Multiple(count)
+    const module = this.ensureModule();
+    return module.generateCOC7Multiple(count);
   }
 
   /**
@@ -376,8 +368,8 @@ export class DiceAdapter {
    * @param count 生成数量
    */
   generateCOC6Multiple(count: number): string {
-    const module = this.ensureModule()
-    return module.generateCOC6Multiple(count)
+    const module = this.ensureModule();
+    return module.generateCOC6Multiple(count);
   }
 
   /**
@@ -385,8 +377,8 @@ export class DiceAdapter {
    * @param count 生成数量
    */
   generateDND(count = 1): string {
-    const module = this.ensureModule()
-    return module.generateDNDCharacter(count)
+    const module = this.ensureModule();
+    return module.generateDNDCharacter(count);
   }
 
   // ============ 人物卡解析功能 ============
@@ -397,8 +389,8 @@ export class DiceAdapter {
    * @returns JSON 格式的属性对象
    */
   parseCOCAttributes(input: string): string {
-    const module = this.ensureModule()
-    return module.parseCOCAttributes(input)
+    const module = this.ensureModule();
+    return module.parseCOCAttributes(input);
   }
 
   /**
@@ -407,8 +399,8 @@ export class DiceAdapter {
    * @returns 规范化后的属性名
    */
   normalizeAttributeName(name: string): string {
-    const module = this.ensureModule()
-    return module.normalizeAttributeName(name)
+    const module = this.ensureModule();
+    return module.normalizeAttributeName(name);
   }
 
   /**
@@ -417,11 +409,11 @@ export class DiceAdapter {
    * @returns 解析后的命令对象 { cardName?: string, operations: Array<{attr, op, value}> }
    */
   parseStCommand(input: string): {
-    cardName?: string
-    operations: Array<{ attr: string; op: string; value: number }>
+    cardName?: string;
+    operations: Array<{ attr: string; op: string; value: number }>;
   } {
-    const module = this.ensureModule()
-    return module.parseStCommand(input)
+    const module = this.ensureModule();
+    return module.parseStCommand(input);
   }
 
   /**
@@ -430,11 +422,11 @@ export class DiceAdapter {
    * @returns 解析后的对象 { cardName?: string, attributes: Array<string> }
    */
   parseAttributeList(input: string): {
-    cardName?: string
-    attributes: string[]
+    cardName?: string;
+    attributes: string[];
   } {
-    const module = this.ensureModule()
-    return module.parseAttributeList(input)
+    const module = this.ensureModule();
+    return module.parseAttributeList(input);
   }
 
   // ============ 理智检定功能 ============
@@ -445,13 +437,9 @@ export class DiceAdapter {
    * @param successLoss 成功时损失表达式 (如 "0" 或 "1")
    * @param failureLoss 失败时损失表达式 (如 "1d6" 或 "1d10")
    */
-  sanityCheck(
-    currentSan: number,
-    successLoss: string,
-    failureLoss: string
-  ): SanityCheckResult {
-    const module = this.ensureModule()
-    return module.sanityCheck(currentSan, successLoss, failureLoss)
+  sanityCheck(currentSan: number, successLoss: string, failureLoss: string): SanityCheckResult {
+    const module = this.ensureModule();
+    return module.sanityCheck(currentSan, successLoss, failureLoss);
   }
 
   // ============ 疯狂症状功能 ============
@@ -461,8 +449,8 @@ export class DiceAdapter {
    * @param index 症状索引 (1-10)
    */
   getTempInsanity(index: number): string {
-    const module = this.ensureModule()
-    return module.getTempInsanity(index)
+    const module = this.ensureModule();
+    return module.getTempInsanity(index);
   }
 
   /**
@@ -470,8 +458,8 @@ export class DiceAdapter {
    * @param index 症状索引 (1-10)
    */
   getLongInsanity(index: number): string {
-    const module = this.ensureModule()
-    return module.getLongInsanity(index)
+    const module = this.ensureModule();
+    return module.getLongInsanity(index);
   }
 
   /**
@@ -479,8 +467,8 @@ export class DiceAdapter {
    * @param index 恐惧症索引 (1-93)
    */
   getPhobia(index: number): string {
-    const module = this.ensureModule()
-    return module.getPhobia(index)
+    const module = this.ensureModule();
+    return module.getPhobia(index);
   }
 
   /**
@@ -488,8 +476,8 @@ export class DiceAdapter {
    * @param index 躁狂症索引 (1-96)
    */
   getMania(index: number): string {
-    const module = this.ensureModule()
-    return module.getMania(index)
+    const module = this.ensureModule();
+    return module.getMania(index);
   }
 
   // ============ 先攻列表功能 ============
@@ -498,77 +486,73 @@ export class DiceAdapter {
    * 添加先攻条目
    */
   addInitiative(channelId: string, name: string, initiative: number): boolean {
-    const module = this.ensureModule()
-    const result = module.addInitiative(channelId, name, initiative)
-    return result.success || false
+    const module = this.ensureModule();
+    const result = module.addInitiative(channelId, name, initiative);
+    return result.success || false;
   }
 
   /**
    * 先攻检定
    */
-  rollInitiative(
-    channelId: string,
-    name: string,
-    modifier: number = 0
-  ): InitiativeRollResult {
-    const module = this.ensureModule()
-    return module.rollInitiative(channelId, name, modifier)
+  rollInitiative(channelId: string, name: string, modifier: number = 0): InitiativeRollResult {
+    const module = this.ensureModule();
+    return module.rollInitiative(channelId, name, modifier);
   }
 
   /**
    * 移除先攻条目
    */
   removeInitiative(channelId: string, name: string): boolean {
-    const module = this.ensureModule()
-    return module.removeInitiative(channelId, name)
+    const module = this.ensureModule();
+    return module.removeInitiative(channelId, name);
   }
 
   /**
    * 清空先攻列表
    */
   clearInitiative(channelId: string): boolean {
-    const module = this.ensureModule()
-    return module.clearInitiative(channelId)
+    const module = this.ensureModule();
+    return module.clearInitiative(channelId);
   }
 
   /**
    * 下一个回合
    */
   nextInitiativeTurn(channelId: string): InitiativeTurnResult {
-    const module = this.ensureModule()
-    return module.nextInitiativeTurn(channelId)
+    const module = this.ensureModule();
+    return module.nextInitiativeTurn(channelId);
   }
 
   /**
    * 获取先攻列表显示
    */
   getInitiativeList(channelId: string): string {
-    const module = this.ensureModule()
-    return module.getInitiativeList(channelId)
+    const module = this.ensureModule();
+    return module.getInitiativeList(channelId);
   }
 
   /**
    * 获取先攻列表条目数
    */
   getInitiativeCount(channelId: string): number {
-    const module = this.ensureModule()
-    return module.getInitiativeCount(channelId)
+    const module = this.ensureModule();
+    return module.getInitiativeCount(channelId);
   }
 
   /**
    * 序列化先攻列表
    */
   serializeInitiative(channelId: string): string {
-    const module = this.ensureModule()
-    return module.serializeInitiative(channelId)
+    const module = this.ensureModule();
+    return module.serializeInitiative(channelId);
   }
 
   /**
    * 反序列化先攻列表
    */
   deserializeInitiative(channelId: string, jsonStr: string): boolean {
-    const module = this.ensureModule()
-    return module.deserializeInitiative(channelId, jsonStr)
+    const module = this.ensureModule();
+    return module.deserializeInitiative(channelId, jsonStr);
   }
 
   // ============ 扩展系统 ============
@@ -581,8 +565,8 @@ export class DiceAdapter {
    * @returns 是否加载成功
    */
   loadLuaExtension(name: string, code: string, originalCode: string): boolean {
-    const module = this.ensureModule()
-    return module.loadLuaExtension(name, code, originalCode)
+    const module = this.ensureModule();
+    return module.loadLuaExtension(name, code, originalCode);
   }
 
   /**
@@ -592,8 +576,8 @@ export class DiceAdapter {
    * @returns 是否加载成功
    */
   loadJSExtension(name: string, code: string): boolean {
-    const module = this.ensureModule()
-    return module.loadJSExtension(name, code)
+    const module = this.ensureModule();
+    return module.loadJSExtension(name, code);
   }
 
   /**
@@ -604,41 +588,39 @@ export class DiceAdapter {
     context: ExtensionContext,
     snapshot?: ExtensionDataSnapshot
   ): Promise<string> {
-    const module = this.ensureModule()
+    const module = this.ensureModule();
     if (snapshot) {
-      module.clearExtensionData()
+      module.clearExtensionData();
       for (const entry of snapshot.users ?? []) {
-        module.preloadUserExtensionData(entry.id, entry.key, entry.value)
+        module.preloadUserExtensionData(entry.id, entry.key, entry.value);
       }
       for (const entry of snapshot.groups ?? []) {
-        module.preloadGroupExtensionData(entry.id, entry.key, entry.value)
+        module.preloadGroupExtensionData(entry.id, entry.key, entry.value);
       }
     }
-    return module.callExtension(name, context)
+    return module.callExtension(name, context);
   }
 
   clearExtensionData(): void {
-    this.ensureModule().clearExtensionData()
+    this.ensureModule().clearExtensionData();
   }
 
   preloadUserExtensionData(uid: string, key: string, value: string): void {
-    this.ensureModule().preloadUserExtensionData(uid, key, value)
+    this.ensureModule().preloadUserExtensionData(uid, key, value);
   }
 
   preloadGroupExtensionData(gid: string, key: string, value: string): void {
-    this.ensureModule().preloadGroupExtensionData(gid, key, value)
+    this.ensureModule().preloadGroupExtensionData(gid, key, value);
   }
 
   drainExtensionDataWrites(): ExtensionDataWrite[] {
-    const writes: unknown = JSON.parse(
-      this.ensureModule().drainExtensionDataWrites()
-    )
+    const writes: unknown = JSON.parse(this.ensureModule().drainExtensionDataWrites());
     // The native binding is the sole producer and serializes this exact shape.
-    return writes as ExtensionDataWrite[]
+    return writes as ExtensionDataWrite[];
   }
 
   cleanupExtensions(): void {
-    this.ensureModule().cleanupExtensions()
+    this.ensureModule().cleanupExtensions();
   }
 
   /**
@@ -647,8 +629,8 @@ export class DiceAdapter {
    * @returns 是否卸载成功
    */
   unloadExtension(name: string): boolean {
-    const module = this.ensureModule()
-    return module.unloadExtension(name)
+    const module = this.ensureModule();
+    return module.unloadExtension(name);
   }
 
   /**
@@ -656,8 +638,8 @@ export class DiceAdapter {
    * @returns 扩展名称列表（JSON 格式）
    */
   listExtensions(): string {
-    const module = this.ensureModule()
-    return module.listExtensions()
+    const module = this.ensureModule();
+    return module.listExtensions();
   }
 
   /**
@@ -666,8 +648,8 @@ export class DiceAdapter {
    * @returns 扩展是否存在
    */
   hasExtension(name: string): boolean {
-    const module = this.ensureModule()
-    return module.hasExtension(name)
+    const module = this.ensureModule();
+    return module.hasExtension(name);
   }
 
   /**
@@ -681,8 +663,8 @@ export class DiceAdapter {
       [SuccessLevel.HardSuccess]: '困难成功',
       [SuccessLevel.ExtremeSuccess]: '极难成功',
       [SuccessLevel.CriticalSuccess]: '大成功'
-    }
-    return levelNames[level] || '未知'
+    };
+    return levelNames[level] || '未知';
   }
 
   /**
@@ -690,52 +672,49 @@ export class DiceAdapter {
    */
   static formatRollResult(result: RollResult, reason?: string): string {
     if (result.errorCode !== 0) {
-      return `掷骰失败: ${result.errorMsg}`
+      return `掷骰失败: ${result.errorMsg}`;
     }
 
-    const parts: string[] = []
+    const parts: string[] = [];
     if (reason) {
-      parts.push(reason)
+      parts.push(reason);
     }
-    parts.push(result.detail)
+    parts.push(result.detail);
 
-    return parts.join(' ')
+    return parts.join(' ');
   }
 
   /**
    * 格式化COC检定结果为消息文本
    */
-  static formatCOCCheckResult(
-    result: COCCheckResult,
-    skillName?: string
-  ): string {
+  static formatCOCCheckResult(result: COCCheckResult, skillName?: string): string {
     if (result.errorCode !== 0) {
-      return `检定失败: ${result.errorMsg}`
+      return `检定失败: ${result.errorMsg}`;
     }
 
-    const parts: string[] = []
+    const parts: string[] = [];
     if (skillName) {
-      parts.push(`${skillName}检定`)
+      parts.push(`${skillName}检定`);
     }
-    parts.push(`${result.rollValue}/${result.skillValue}`)
-    parts.push(DiceAdapter.formatSuccessLevel(result.successLevel))
+    parts.push(`${result.rollValue}/${result.skillValue}`);
+    parts.push(DiceAdapter.formatSuccessLevel(result.successLevel));
 
-    return parts.join(' ')
+    return parts.join(' ');
   }
 }
 
 // 导出单例实例
-let adapterInstance: DiceAdapter | null = null
+let adapterInstance: DiceAdapter | null = null;
 
 /**
  * 获取全局适配器实例
  */
 export async function getDiceAdapter(): Promise<DiceAdapter> {
   if (!adapterInstance) {
-    adapterInstance = new DiceAdapter()
-    await adapterInstance.initialize()
+    adapterInstance = new DiceAdapter();
+    await adapterInstance.initialize();
   }
-  return adapterInstance
+  return adapterInstance;
 }
 
 /**
@@ -743,9 +722,9 @@ export async function getDiceAdapter(): Promise<DiceAdapter> {
  * @returns {Promise<DiceAdapter>} Initialized adapter
  */
 export async function createDiceAdapter(): Promise<DiceAdapter> {
-  const adapter = new DiceAdapter()
-  await adapter.initialize()
-  return adapter
+  const adapter = new DiceAdapter();
+  await adapter.initialize();
+  return adapter;
 }
 
 /**
@@ -753,5 +732,5 @@ export async function createDiceAdapter(): Promise<DiceAdapter> {
  * @returns {Promise<void>}
  */
 export async function waitForReady(): Promise<void> {
-  await initDiceModule()
+  await initDiceModule();
 }

@@ -1,1 +1,1 @@
-export * from './pc/index'
+export * from './pc/index';

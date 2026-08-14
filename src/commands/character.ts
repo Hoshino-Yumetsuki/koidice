@@ -1,8 +1,8 @@
-import type { Command, Context } from 'koishi'
-import type { DiceAdapter } from '../wasm'
-import type { ExtensionService } from '../services/extension-service'
+import type { Command, Context } from 'koishi';
+import type { DiceAdapter } from '../wasm';
+import type { ExtensionService } from '../services/extension-service';
 
-import { registerCharacterCommands } from './character/index'
+import { registerCharacterCommands } from './character/index';
 
 /**
  * 注册所有人物卡相关命令
@@ -17,5 +17,5 @@ export function registerAttributeCharacterCommands(
   diceAdapter: DiceAdapter,
   extensionService?: ExtensionService
 ) {
-  registerCharacterCommands(parent, ctx, diceAdapter, extensionService)
+  registerCharacterCommands(parent, ctx, diceAdapter, extensionService);
 }

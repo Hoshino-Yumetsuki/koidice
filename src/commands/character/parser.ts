@@ -1,5 +1,5 @@
-import type { ParsedStCommand } from './types'
-import type { DiceAdapter } from '../../wasm'
+import type { ParsedStCommand } from './types';
+import type { DiceAdapter } from '../../wasm';
 
 /**
  * 解析 .st 命令参数
@@ -7,11 +7,8 @@ import type { DiceAdapter } from '../../wasm'
  * - 力量 60 敏捷 70
  * - Alice--力量 60 敏捷 70
  */
-export function parseStCommand(
-  input: string,
-  adapter: DiceAdapter
-): ParsedStCommand {
-  return adapter.parseStCommand(input) as ParsedStCommand
+export function parseStCommand(input: string, adapter: DiceAdapter): ParsedStCommand {
+  return adapter.parseStCommand(input) as ParsedStCommand;
 }
 
 /**
@@ -25,8 +22,8 @@ export function parseAttributeList(
   input: string,
   adapter: DiceAdapter
 ): {
-  cardName?: string
-  attributes: string[]
+  cardName?: string;
+  attributes: string[];
 } {
-  return adapter.parseAttributeList(input)
+  return adapter.parseAttributeList(input);
 }
